@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Livewire\Dashboard;
+use App\Livewire\Rdv;
+use App\Livewire\Stocks;
 use App\Livewire\Auth\Login;
 
 /*
@@ -36,5 +38,7 @@ Route::middleware([
 
     Route::middleware('auth')->group(function () {
         Route::get('/dashboard', Dashboard::class)->name('dashboard');
+        Route::get('/rendez-vous', Rdv::class)->name('rdv');
+        Route::get('/stocks', Stocks::class)->name('stocks');
     });
 });
