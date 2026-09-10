@@ -7,6 +7,7 @@ namespace App\Providers;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
@@ -103,6 +104,8 @@ class TenancyServiceProvider extends ServiceProvider
         $this->mapRoutes();
 
         $this->makeTenancyMiddlewareHighestPriority();
+
+        $this->makeLivewireTenantAware();
     }
 
     protected function bootEvents()
@@ -144,5 +147,22 @@ class TenancyServiceProvider extends ServiceProvider
         foreach (array_reverse($tenancyMiddleware) as $middleware) {
             $this->app[\Illuminate\Contracts\Http\Kernel::class]->prependToMiddlewarePriority($middleware);
         }
+    }
+
+    /**
+     * Rend le endpoint interne de Livewire (les requêtes AJAX qui mettent à
+     * jour les composants) "conscient du tenant". Sans ça, ces requêtes
+     * tournent sur la base centrale au lieu de celle de la clinique, et
+     * provoquent des erreurs 419 (session introuvable) à chaque interaction.
+     */
+    protected function makeLivewireTenantAware()
+    {
+        Livewire::setUpdateRoute(function ($handle) {
+            return Route::post('/livewire/update', $handle)->middleware([
+                'web',
+                Middleware\InitializeTenancyByDomain::class,
+                Middleware\PreventAccessFromCentralDomains::class,
+            ]);
+        });
     }
 }

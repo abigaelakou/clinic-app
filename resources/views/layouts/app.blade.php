@@ -8,6 +8,14 @@
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,520;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/fame.css">
     @livewireStyles
+    <style>
+        .logout-link{
+            display:flex; align-items:center; gap:8px; margin-top:10px; padding:8px 8px;
+            font-size:12px; color:#B7A79E; cursor:pointer; border:none; background:none;
+            font-family:inherit; width:100%; text-align:left; border-radius:8px;
+        }
+        .logout-link:hover{ color:#fff; background:rgba(255,255,255,0.05); }
+    </style>
 </head>
 <body>
 <div class="backdrop" id="backdrop"></div>
@@ -36,6 +44,10 @@
                     <div class="user-role">{{ auth()->user()->role ?? '' }}</div>
                 </div>
             </div>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit" class="logout-link">↩ Se déconnecter</button>
+            </form>
         </div>
     </aside>
 
@@ -90,8 +102,27 @@
 </div>
 
 @livewireScripts
+<div class="expired-toast" id="pageExpiredToast">
+    <div class="expired-toast-icon">⏳</div>
+    <div>
+        <div class="expired-toast-title">Ta session a expiré</div>
+        <div class="expired-toast-desc">Pour continuer en toute sécurité, recharge la page.</div>
+    </div>
+    <button class="expired-toast-btn" onclick="location.reload()">Recharger</button>
+</div>
 <script>
-    // Menu mobile
+    document.addEventListener('livewire:init', () => {
+        Livewire.hook('request', ({ fail }) => {
+            fail(({ status, preventDefault }) => {
+                if (status === 419) {
+                    preventDefault();
+                    document.getElementById('pageExpiredToast')?.classList.add('show');
+                }
+            });
+        });
+    });
+</script>
+<script>
     const sidebar = document.getElementById('sidebar');
     const backdrop = document.getElementById('backdrop');
     const hamburger = document.getElementById('hamburger');
@@ -102,13 +133,11 @@
     sidebarClose && sidebarClose.addEventListener('click', closeDrawer);
     backdrop && backdrop.addEventListener('click', closeDrawer);
 
-    // Notifications
     const notifWrap = document.getElementById('notifWrap');
     const notifBtn = document.getElementById('notifBtn');
     notifBtn && notifBtn.addEventListener('click', (e) => { e.stopPropagation(); notifWrap.classList.toggle('open'); });
     document.addEventListener('click', () => notifWrap && notifWrap.classList.remove('open'));
 
-    // Compteurs animés + barres de stock (relancés après chaque mise à jour Livewire)
     function animateCount(el){
         const target = parseFloat(el.dataset.count);
         const suffix = el.dataset.suffix || '';
