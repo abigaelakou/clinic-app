@@ -2,21 +2,17 @@
 
 declare(strict_types=1);
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Stancl\Tenancy\Middleware\InitializeTenancyByDomain;
 use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Livewire\Dashboard;
+use App\Livewire\Auth\Login;
 
 /*
 |--------------------------------------------------------------------------
 | Tenant Routes
 |--------------------------------------------------------------------------
-|
-| Here you can register the tenant routes for your application.
-| These routes are loaded by the TenantRouteServiceProvider.
-|
-| Feel free to customize them however you want. Good luck!
-|
 */
 
 Route::middleware([
@@ -24,9 +20,21 @@ Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
 ])->group(function () {
+
     Route::get('/', function () {
-        return 'This is your multi-tenant application. The id of the current tenant is ' . tenant('id');
+        return redirect()->route('dashboard');
     });
 
-    Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    Route::get('/login', Login::class)->name('login')->middleware('guest');
+
+    Route::post('/logout', function () {
+        Auth::logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
+        return redirect()->route('login');
+    })->name('logout');
+
+    Route::middleware('auth')->group(function () {
+        Route::get('/dashboard', Dashboard::class)->name('dashboard');
+    });
 });
