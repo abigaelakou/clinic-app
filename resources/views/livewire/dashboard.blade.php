@@ -14,13 +14,15 @@
     </div>
 
     <div class="kpi-row">
+        @if($canSeeStock)
         <div class="kpi">
             <div class="label">Alertes actives
                 <div class="swatch" style="background:var(--crit-tint);color:var(--crit);">⚠</div>
             </div>
             <div class="value" data-count="{{ $alertsCount }}">{{ $alertsCount }}</div>
-            <svg class="spark" width="100%" height="26" viewBox="0 0 120 26" preserveAspectRatio="none"><polyline points="0,20 20,18 40,14 60,16 80,8 100,10 120,4" fill="none" stroke="#B3261E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/></svg>
         </div>
+        @endif
+        @if($canSeeAppointments)
         <div class="kpi">
             <div class="label">RDV aujourd'hui
                 <div class="swatch" style="background:var(--info-tint);color:var(--info);">📅</div>
@@ -28,12 +30,14 @@
             <div class="value" data-count="{{ $appointmentsToday }}">{{ $appointmentsToday }}</div>
             <div class="delta down">{{ $appointmentsPending }} en attente</div>
         </div>
+        @endif
     </div>
 
     <div class="grid-2">
+        @if($canSeeStock)
         <div class="card">
             <div class="card-head"><h2>Alertes de stock</h2><span class="see-all">Voir tout</span></div>
-            <div class="card-sub">Produits sous le seuil ou en rupture</div>
+            <div class="card-sub">Produits sous le seuil ou en rupture — domaines que tu gères</div>
             @forelse($stockAlerts as $product)
                 <div class="stock-row">
                     <div class="bar {{ $product->status() === 'rupture' ? 'crit' : 'warn' }}"></div>
@@ -49,7 +53,9 @@
                 <div class="stock-row">Aucune alerte pour le moment 🎉</div>
             @endforelse
         </div>
+        @endif
 
+        @if($canSeeAppointments)
         <div class="card">
             <div class="card-head"><h2>Rendez-vous du jour</h2><span class="see-all">Agenda</span></div>
             @forelse($todayAppointments as $appt)
@@ -66,7 +72,15 @@
                 <div class="rdv-row">Aucun rendez-vous aujourd'hui</div>
             @endforelse
         </div>
+        @endif
     </div>
+
+    @if(! $canSeeStock && ! $canSeeAppointments)
+        <div class="card" style="padding:24px;text-align:center;color:var(--ink-soft);font-size:13px;">
+            Ton rôle n'a pas de tableau de bord dédié pour l'instant — reviens vers ton responsable si tu penses
+            que c'est une erreur.
+        </div>
+    @endif
 
     <div class="footnote">CLINIQUE FAME · Application de gestion intégrée</div>
 </div>
