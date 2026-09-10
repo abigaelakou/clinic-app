@@ -32,10 +32,18 @@
         <a href="{{ route('dashboard') }}" class="nav-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <span class="ic">◆</span> Tableau de bord
         </a>
-        <div class="nav-item"><span class="ic">📅</span> Rendez-vous</div>
+        @if(auth()->user()?->canAccessAppointments())
+        <a href="{{ route('rdv') }}" class="nav-item {{ request()->routeIs('rdv') ? 'active' : '' }}">
+            <span class="ic">📅</span> Rendez-vous
+        </a>
+        @endif
         <div class="nav-item"><span class="ic">🗂</span> Dossiers patients</div>
+        @if(count(auth()->user()?->readableStockDomains() ?? []) > 0)
         <div class="nav-section-label">Stocks</div>
-        <div class="nav-item"><span class="ic">💊</span> Pharmacie</div>
+        <a href="{{ route('stocks') }}" class="nav-item {{ request()->routeIs('stocks') ? 'active' : '' }}">
+            <span class="ic">💊</span> Stocks
+        </a>
+        @endif
         <div class="sidebar-foot">
             <div class="user-chip">
                 <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
