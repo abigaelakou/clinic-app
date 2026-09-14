@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Patient;
 use App\Models\Product;
 use App\Models\StockCategory;
 use Illuminate\Support\Facades\Auth;
@@ -11,6 +12,41 @@ class Stocks extends Component
 {
     public string $domain = '';
     public ?int $categoryId = null;
+
+    // ---- Modale mouvement ----
+    public bool $showMovementModal = false;
+    public ?int $movementProductId = null;
+    public string $movementProductName = '';
+    public string $movementType = 'entry';
+    public $movementQuantity = 1;
+    public string $movementReason = '';
+    public string $movementLotNumber = '';
+    public string $movementExpiryDate = '';
+    public ?int $movementPatientId = null;
+    public string $selectedPatientName = '';
+    public string $patientSearch = '';
+
+    // ---- Modale historique ----
+    public bool $showHistoryModal = false;
+    public ?int $historyProductId = null;
+    public string $historyProductName = '';
+
+    // ---- Modale nouveau produit ----
+    public bool $showNewProductModal = false;
+    public string $newProductName = '';
+    public ?int $newProductCategoryId = null;
+    public string $newProductCategoryName = '';
+    public string $newProductUnit = '';
+    public $newProductThreshold = 0;
+    public $newProductInitialQty = 0;
+    public string $newProductLotNumber = '';
+    public string $newProductExpiryDate = '';
+
+    /**
+     * Domaines où la dispensation nominative (lier une sortie à une
+     * patiente) a du sens. Pas la cuisine ou le non consommable générique.
+     */
+    protected const PATIENT_LINK_DOMAINS = ['pharmacie', 'consommable'];
 
     public function mount()
     {
@@ -49,6 +85,212 @@ class Stocks extends Component
         };
     }
 
+    /** Exemple de nom de produit adapté au domaine affiché, pour guider la saisie. */
+    protected function productPlaceholder(string $domain): string
+    {
+        return match ($domain) {
+            'pharmacie' => 'Ex : Paracétamol 500mg',
+            'consommable' => 'Ex : Gants latex, taille M',
+            'non_consommable' => 'Ex : Tensiomètre',
+            'cuisine' => 'Ex : Riz local (sac 25kg)',
+            default => 'Nom du produit',
+        };
+    }
+
+    protected function unitPlaceholder(string $domain): string
+    {
+        return match ($domain) {
+            'pharmacie' => 'comprimé, dose, flacon...',
+            'consommable' => 'boîte, paquet, rouleau...',
+            'non_consommable' => 'unité, appareil...',
+            'cuisine' => 'kg, sac, litre...',
+            default => 'unité',
+        };
+    }
+
+    // ---------- Mouvement ----------
+
+    public function openMovement(int $productId)
+    {
+        $product = Product::with('category')->findOrFail($productId);
+
+        if (! Auth::user()->canWriteStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        $this->movementProductId = $product->id;
+        $this->movementProductName = $product->name;
+        $this->movementType = 'entry';
+        $this->movementQuantity = 1;
+        $this->movementReason = '';
+        $this->movementLotNumber = '';
+        $this->movementExpiryDate = '';
+        $this->movementPatientId = null;
+        $this->selectedPatientName = '';
+        $this->patientSearch = '';
+        $this->resetErrorBag();
+        $this->showMovementModal = true;
+    }
+
+    public function closeMovement()
+    {
+        $this->showMovementModal = false;
+    }
+
+    public function selectMovementPatient(int $patientId)
+    {
+        $patient = Patient::findOrFail($patientId);
+        $this->movementPatientId = $patient->id;
+        $this->selectedPatientName = $patient->first_name . ' ' . $patient->last_name;
+        $this->patientSearch = '';
+    }
+
+    public function clearMovementPatient()
+    {
+        $this->movementPatientId = null;
+        $this->selectedPatientName = '';
+    }
+
+    public function saveMovement()
+    {
+        $this->validate([
+            'movementType' => 'required|in:entry,exit',
+            'movementQuantity' => 'required|numeric|min:0.01',
+            'movementLotNumber' => 'nullable|string|max:100',
+            'movementExpiryDate' => 'nullable|date',
+        ], [], ['movementQuantity' => 'quantité']);
+
+        $product = Product::with('category')->findOrFail($this->movementProductId);
+
+        if (! Auth::user()->canWriteStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        if ($this->movementType === 'exit' && (float) $this->movementQuantity > $product->quantity_on_hand) {
+            $this->addError('movementQuantity', 'Quantité supérieure au stock disponible (' . $product->formattedQuantity() . ').');
+            return;
+        }
+
+        $canLinkPatient = in_array($product->category->domain, self::PATIENT_LINK_DOMAINS, true);
+
+        $product->recordMovement(
+            $this->movementType,
+            (float) $this->movementQuantity,
+            Auth::user(),
+            [
+                'reason' => $this->movementReason ?: null,
+                'lot_number' => $this->movementLotNumber ?: null,
+                'expiry_date' => $this->movementExpiryDate ?: null,
+                'patient_id' => ($this->movementType === 'exit' && $canLinkPatient) ? $this->movementPatientId : null,
+            ]
+        );
+
+        $this->showMovementModal = false;
+        $this->dispatch('toast', message: 'Mouvement enregistré pour ' . $product->name . '.');
+    }
+
+    // ---------- Historique ----------
+
+    public function openHistory(int $productId)
+    {
+        $product = Product::with('category')->findOrFail($productId);
+
+        if (! Auth::user()->canReadStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        $this->historyProductId = $productId;
+        $this->historyProductName = $product->name;
+        $this->showHistoryModal = true;
+    }
+
+    public function closeHistory()
+    {
+        $this->showHistoryModal = false;
+    }
+
+    // ---------- Nouveau produit ----------
+
+    public function openNewProduct()
+    {
+        if (! Auth::user()->canWriteStockDomain($this->domain)) {
+            abort(403);
+        }
+
+        $this->newProductName = '';
+        $this->newProductCategoryId = null;
+        $this->newProductCategoryName = '';
+        $this->newProductUnit = '';
+        $this->newProductThreshold = 0;
+        $this->newProductInitialQty = 0;
+        $this->newProductLotNumber = '';
+        $this->newProductExpiryDate = '';
+        $this->resetErrorBag();
+        $this->showNewProductModal = true;
+    }
+
+    public function closeNewProduct()
+    {
+        $this->showNewProductModal = false;
+    }
+
+    public function saveNewProduct()
+    {
+        if (! Auth::user()->canWriteStockDomain($this->domain)) {
+            abort(403);
+        }
+
+        $this->validate([
+            'newProductName' => 'required|min:2',
+            'newProductUnit' => 'required',
+            'newProductThreshold' => 'required|numeric|min:0',
+            'newProductInitialQty' => 'nullable|numeric|min:0',
+            'newProductExpiryDate' => 'nullable|date',
+        ], [], [
+            'newProductName' => 'nom du produit',
+            'newProductUnit' => 'unité',
+            'newProductThreshold' => "seuil d'alerte",
+        ]);
+
+        if (! $this->newProductCategoryId && trim($this->newProductCategoryName) === '') {
+            $this->addError('newProductCategoryId', 'Choisis une catégorie existante ou saisis-en une nouvelle.');
+            return;
+        }
+
+        $categoryId = $this->newProductCategoryId;
+
+        if (! $categoryId) {
+            $category = StockCategory::firstOrCreate([
+                'domain' => $this->domain,
+                'name' => trim($this->newProductCategoryName),
+            ]);
+            $categoryId = $category->id;
+        }
+
+        $product = Product::create([
+            'stock_category_id' => $categoryId,
+            'name' => $this->newProductName,
+            'unit' => $this->newProductUnit,
+            'alert_threshold' => $this->newProductThreshold,
+            'quantity_on_hand' => 0,
+            'is_active' => true,
+        ]);
+
+        // La quantité initiale est optionnelle : on peut référencer un produit
+        // avant d'en avoir physiquement en stock (ex: en attente de livraison).
+        if ((float) $this->newProductInitialQty > 0) {
+            $product->recordMovement('entry', (float) $this->newProductInitialQty, Auth::user(), [
+                'reason' => 'Stock initial à la création du produit',
+                'lot_number' => $this->newProductLotNumber ?: null,
+                'expiry_date' => $this->newProductExpiryDate ?: null,
+            ]);
+        }
+
+        $this->categoryId = $categoryId;
+        $this->showNewProductModal = false;
+        $this->dispatch('toast', message: $product->name . ' ajouté au stock.');
+    }
+
     public function render()
     {
         $user = Auth::user();
@@ -60,7 +302,7 @@ class Stocks extends Component
             ->get();
 
         $productsQuery = Product::whereHas('category', fn ($q) => $q->where('domain', $this->domain))
-            ->with('category');
+            ->with(['category', 'batches' => fn ($q) => $q->where('quantity', '>', 0)->whereNotNull('expiry_date')->orderBy('expiry_date')]);
 
         if ($this->categoryId) {
             $productsQuery->where('stock_category_id', $this->categoryId);
@@ -68,17 +310,37 @@ class Stocks extends Component
 
         $products = $productsQuery->orderBy('name')->get();
 
-        $readableFilter = fn ($q) => $q->whereIn('domain', $readableDomains);
+        $statsQuery = fn () => Product::whereHas('category', fn ($q) => $q->where('domain', $this->domain))
+            ->when($this->categoryId, fn ($q) => $q->where('stock_category_id', $this->categoryId));
+
+        $movementHistory = collect();
+        if ($this->historyProductId) {
+            $movementHistory = \App\Models\StockMovement::where('product_id', $this->historyProductId)
+                ->with(['user', 'patient'])
+                ->latest()
+                ->limit(20)
+                ->get();
+        }
+
+        $filteredPatients = $this->patientSearch !== ''
+            ? Patient::where('first_name', 'like', "%{$this->patientSearch}%")->orWhere('last_name', 'like', "%{$this->patientSearch}%")->limit(8)->get()
+            : Patient::orderBy('first_name')->limit(8)->get();
 
         return view('livewire.stocks', [
             'domainTabs' => collect($readableDomains)->map(fn ($d) => ['key' => $d, 'label' => $this->domainLabel($d)]),
             'currentLabel' => $this->domainLabel($this->domain),
             'categories' => $categories,
+            'allCategoriesForNewProduct' => $categories,
             'products' => $products,
-            'total' => Product::whereHas('category', $readableFilter)->count(),
-            'ruptureCount' => Product::outOfStock()->whereHas('category', $readableFilter)->count(),
-            'lowStockCount' => Product::belowThreshold()->where('quantity_on_hand', '>', 0)->whereHas('category', $readableFilter)->count(),
+            'total' => $statsQuery()->count(),
+            'ruptureCount' => $statsQuery()->outOfStock()->count(),
+            'lowStockCount' => $statsQuery()->belowThreshold()->where('quantity_on_hand', '>', 0)->count(),
             'canWrite' => $user->canWriteStockDomain($this->domain),
+            'movementHistory' => $movementHistory,
+            'filteredPatients' => $filteredPatients,
+            'productPlaceholder' => $this->productPlaceholder($this->domain),
+            'unitPlaceholder' => $this->unitPlaceholder($this->domain),
+            'canLinkPatient' => in_array($this->domain, self::PATIENT_LINK_DOMAINS, true),
         ])->layout('layouts.app', ['notifications' => collect()]);
     }
 }
