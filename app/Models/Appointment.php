@@ -54,4 +54,18 @@ class Appointment extends Model
 
         $this->update(['status' => 'confirmed', 'confirmed_by' => $by->id]);
     }
+
+    /** Libellé du statut en français, pour l'affichage (jamais l'enum brute). */
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'pending' => 'En attente',
+            'confirmed' => 'Confirmé',
+            'rescheduled' => 'Reporté',
+            'cancelled' => 'Annulé',
+            'completed' => 'Terminé',
+            'no_show' => 'Absence',
+            default => ucfirst($this->status),
+        };
+    }
 }

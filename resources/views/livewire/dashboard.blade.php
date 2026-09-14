@@ -9,7 +9,9 @@
         </div>
         <div style="display:flex;gap:10px;">
             <button class="btn ghost">Exporter le rapport</button>
-            <button class="btn">+ Nouveau rendez-vous</button>
+            @if($canSeeAppointments)
+                <button class="btn" wire:click="$dispatch('open-new-appointment-modal')">+ Nouveau rendez-vous</button>
+            @endif
         </div>
     </div>
 
@@ -36,7 +38,7 @@
     <div class="grid-2">
         @if($canSeeStock)
         <div class="card">
-            <div class="card-head"><h2>Alertes de stock</h2><span class="see-all">Voir tout</span></div>
+            <div class="card-head"><h2>Alertes de stock</h2>@if($canSeeStock)<a href="{{ route('stocks') }}" class="see-all">Voir tout</a>@endif</div>
             <div class="card-sub">Produits sous le seuil ou en rupture — domaines que tu gères</div>
             @forelse($stockAlerts as $product)
                 <div class="stock-row">
@@ -46,7 +48,7 @@
                         <div class="stock-meta">{{ $product->category->name ?? '' }}</div>
                     </div>
                     <div class="pill {{ $product->status() === 'rupture' ? 'crit' : 'warn' }}">
-                        {{ $product->status() === 'rupture' ? 'Rupture' : $product->quantity_on_hand.' / seuil '.$product->alert_threshold }}
+                        {{ $product->status() === 'rupture' ? 'Rupture' : $product->formattedQuantity().' / seuil '.rtrim(rtrim(number_format($product->alert_threshold, 2, '.', ''), '0'), '.') }}
                     </div>
                 </div>
             @empty
@@ -57,16 +59,16 @@
 
         @if($canSeeAppointments)
         <div class="card">
-            <div class="card-head"><h2>Rendez-vous du jour</h2><span class="see-all">Agenda</span></div>
+            <div class="card-head"><h2>Rendez-vous du jour</h2>@if($canSeeAppointments)<a href="{{ route('rdv') }}" class="see-all">Agenda</a>@endif</div>
             @forelse($todayAppointments as $appt)
                 <div class="rdv-row">
                     <div class="rdv-time">{{ $appt->scheduled_at->format('H:i') }}</div>
                     <div class="rdv-dot {{ $appt->status }}"></div>
                     <div class="rdv-info">
                         <div class="rdv-patient">{{ $appt->patient->first_name }}</div>
-                        <div class="rdv-meta">{{ $appt->doctor->title ?? '' }} {{ $appt->doctor->user->name ?? '' }}</div>
+                        <div class="rdv-meta">{{ $appt->doctor->user->name ?? '' }}</div>
                     </div>
-                    <div class="rdv-status {{ $appt->status }}">{{ ucfirst($appt->status) }}</div>
+                    <div class="rdv-status {{ $appt->status }}">{{ $appt->statusLabel() }}</div>
                 </div>
             @empty
                 <div class="rdv-row">Aucun rendez-vous aujourd'hui</div>
@@ -83,4 +85,6 @@
     @endif
 
     <div class="footnote">CLINIQUE FAME · Application de gestion intégrée</div>
+
+    <livewire:new-appointment-modal />
 </div>

@@ -49,13 +49,48 @@ class Product extends Model
         return 'ok';
     }
 
+    /** Affiche "12" plutôt que "12.00", mais garde les décimales si elles comptent (ex: 1.5 kg). */
+    public function formattedQuantity(): string
+    {
+        $q = (float) $this->quantity_on_hand;
+        return $q == floor($q) ? (string) (int) $q : rtrim(rtrim(number_format($q, 2, '.', ''), '0'), '.');
+    }
+
+    public function nextExpiry(): ?ProductBatch
+    {
+        return $this->batches()
+            ->where('quantity', '>', 0)
+            ->whereNotNull('expiry_date')
+            ->orderBy('expiry_date')
+            ->first();
+    }
+
     public function recordMovement(string $type, float $quantity, User $user, array $extra = []): StockMovement
     {
-        $movement = $this->movements()->create(array_merge([
+        $batch = null;
+
+        if ($type === 'entry' && ! empty($extra['lot_number'])) {
+            $batch = $this->batches()->firstOrNew(['lot_number' => $extra['lot_number']]);
+            $batch->expiry_date = $extra['expiry_date'] ?? $batch->expiry_date;
+            $batch->quantity = ($batch->quantity ?? 0) + $quantity;
+            $batch->save();
+        } elseif ($type === 'exit') {
+            $batch = $this->batches()->where('quantity', '>', 0)->whereNotNull('expiry_date')
+                ->orderBy('expiry_date')->first();
+            if ($batch) {
+                $batch->decrement('quantity', min($quantity, $batch->quantity));
+            }
+        }
+
+        $movement = $this->movements()->create([
             'type' => $type,
             'quantity' => $quantity,
             'user_id' => $user->id,
-        ], $extra));
+            'product_batch_id' => $batch?->id,
+            'patient_id' => $extra['patient_id'] ?? null,
+            'service' => $extra['service'] ?? null,
+            'reason' => $extra['reason'] ?? null,
+        ]);
 
         $this->increment('quantity_on_hand', $type === 'entry' ? $quantity : -$quantity);
 

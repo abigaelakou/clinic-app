@@ -6,7 +6,7 @@
     <title>{{ $title ?? 'Tableau de bord' }} — CLINIQUE FAME</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,520;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/fame.css">
+    <link rel="stylesheet" href="/css/fame.css?v=6">
     @livewireStyles
     <style>
         .logout-link{
@@ -104,6 +104,13 @@
             </div>
         </div>
         <div class="content">
+            <div class="flash-toast" x-data="{ show: false, message: '' }" x-cloak
+                 x-show="show" x-transition
+                 x-on:toast.window="message = $event.detail.message; show = true; setTimeout(() => show = false, 4500)">
+                <div class="flash-toast-icon">✓</div>
+                <div class="flash-toast-text" x-text="message"></div>
+                <button class="flash-toast-close" @click="show = false">✕</button>
+            </div>
             {{ $slot }}
         </div>
     </div>

@@ -5,10 +5,18 @@ namespace App\Livewire;
 use App\Models\Appointment;
 use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
+    /** Se contente de provoquer un re-rendu pour rafraîchir les compteurs. */
+    #[On('appointment-created')]
+    public function refreshAfterCreate()
+    {
+        //
+    }
+
     public function render()
     {
         $user = Auth::user();
@@ -49,7 +57,7 @@ class Dashboard extends Component
                 'type' => $product->status() === 'rupture' ? 'crit' : 'warn',
                 'icon' => $product->status() === 'rupture' ? '⛔' : '⚠',
                 'title' => ($product->status() === 'rupture' ? 'Rupture — ' : 'Stock bas — ') . $product->name,
-                'desc' => 'Quantité actuelle : ' . $product->quantity_on_hand,
+                'desc' => 'Quantité actuelle : ' . $product->formattedQuantity(),
                 'time' => '',
             ]);
         }
