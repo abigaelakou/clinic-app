@@ -9,6 +9,7 @@ use Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains;
 use App\Livewire\Dashboard;
 use App\Livewire\Rdv;
 use App\Livewire\Stocks;
+use App\Livewire\Patients;
 use App\Livewire\Auth\Login;
 use App\Models\Product;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -44,6 +45,44 @@ Route::middleware([
         Route::get('/dashboard', Dashboard::class)->name('dashboard');
         Route::get('/rendez-vous', Rdv::class)->name('rdv');
         Route::get('/stocks', Stocks::class)->name('stocks');
+        Route::get('/dossiers-patients', Patients::class)->name('patients');
+
+        Route::get('/dossiers-patients/modele-import', function () {
+            $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Patientes');
+
+            $headers = [
+                'Prénom', 'Nom', 'Téléphone', 'Date de naissance (JJ/MM/AAAA)', 'Sexe (F/M)',
+                'Email', 'Adresse', 'Contact urgence - nom', 'Contact urgence - téléphone', 'Antécédents',
+            ];
+            foreach ($headers as $i => $h) {
+                $sheet->setCellValue(chr(65 + $i) . '1', $h);
+            }
+            $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+            $sheet->getStyle('A1:J1')->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('241A15');
+            $sheet->getStyle('A1:J1')->getFont()->getColor()->setRGB('FFFFFF');
+
+            // Une ligne d'exemple pour guider la saisie.
+            $sheet->setCellValue('A2', 'Danielle');
+            $sheet->setCellValue('B2', 'Koffi');
+            $sheet->setCellValue('C2', '0701000099');
+            $sheet->setCellValue('D2', '15/03/1996');
+            $sheet->setCellValue('E2', 'F');
+
+            foreach (range('A', 'J') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $writer = new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet);
+
+            return response()->streamDownload(function () use ($writer) {
+                $writer->save('php://output');
+            }, 'modele-import-patientes.xlsx', [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ]);
+        })->name('patients.import-template');
 
         Route::get('/stocks/export/excel', function (\Illuminate\Http\Request $request) {
             $user = Auth::user();

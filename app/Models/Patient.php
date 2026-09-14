@@ -36,14 +36,29 @@ class Patient extends Model
         return $this->hasMany(Consultation::class);
     }
 
+    public function documents()
+    {
+        return $this->hasMany(MedicalDocument::class);
+    }
+
     public function sharedDocuments()
     {
         return $this->hasMany(MedicalDocument::class)->where('shared_with_patient', true);
     }
 
+    public function vitals()
+    {
+        return $this->hasMany(Vital::class);
+    }
+
     public function fullName(): string
     {
         return "{$this->first_name} {$this->last_name}";
+    }
+
+    public function age(): ?int
+    {
+        return $this->date_of_birth ? $this->date_of_birth->age : null;
     }
 
     public function logAccess(User $user, string $action = 'view'): void
