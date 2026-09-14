@@ -37,7 +37,11 @@
             <span class="ic">📅</span> Rendez-vous
         </a>
         @endif
-        <div class="nav-item"><span class="ic">🗂</span> Dossiers patients</div>
+        @can('viewAny', App\Models\Patient::class)
+        <a href="{{ route('patients') }}" class="nav-item {{ request()->routeIs('patients') ? 'active' : '' }}">
+            <span class="ic">🗂</span> Dossiers patients
+        </a>
+        @endcan
         @if(count(auth()->user()?->readableStockDomains() ?? []) > 0)
         <div class="nav-section-label">Stocks</div>
         <a href="{{ route('stocks') }}" class="nav-item {{ request()->routeIs('stocks') ? 'active' : '' }}">

@@ -24,4 +24,9 @@ class MedicalDocument extends Model
     {
         return $this->belongsTo(Consultation::class);
     }
+
+    public function uploadedBy()
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
+    }
 }
