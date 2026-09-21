@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 use Stancl\JobPipeline\JobPipeline;
+use Stancl\Tenancy\Controllers\TenantAssetsController;
 use Stancl\Tenancy\Events;
 use Stancl\Tenancy\Jobs;
 use Stancl\Tenancy\Listeners;
@@ -106,6 +107,7 @@ class TenancyServiceProvider extends ServiceProvider
         $this->makeTenancyMiddlewareHighestPriority();
 
         $this->makeLivewireTenantAware();
+        $this->makeTenantAssetsTenantAware();
     }
 
     protected function bootEvents()
@@ -164,5 +166,16 @@ class TenancyServiceProvider extends ServiceProvider
                 Middleware\PreventAccessFromCentralDomains::class,
             ]);
         });
+    }
+
+    /**
+     * Indique au contrôleur qui sert les fichiers uploadés (avatars,
+     * documents patients...) via asset()/tenant_asset() quel middleware de
+     * détection de tenant utiliser, pour qu'il serve le bon fichier de la
+     * bonne clinique. Sans ça, les fichiers uploadés restent invisibles.
+     */
+    protected function makeTenantAssetsTenantAware()
+    {
+        TenantAssetsController::$tenancyMiddleware = Middleware\InitializeTenancyByDomain::class;
     }
 }
