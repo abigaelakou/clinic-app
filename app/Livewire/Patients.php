@@ -21,6 +21,36 @@ class Patients extends Component
 
     // ---- Nouvelle patiente ----
     public bool $showNewPatientModal = false;
+
+    // ---- Modale de confirmation générique (remplace confirm() du navigateur) ----
+    public bool $showConfirmModal = false;
+    public string $confirmMessage = '';
+    public string $confirmAction = '';
+    public ?int $confirmTargetId = null;
+
+    public function askConfirm(string $action, string $message, ?int $targetId = null)
+    {
+        $this->confirmAction = $action;
+        $this->confirmMessage = $message;
+        $this->confirmTargetId = $targetId;
+        $this->showConfirmModal = true;
+    }
+
+    public function closeConfirm()
+    {
+        $this->showConfirmModal = false;
+    }
+
+    public function runConfirmedAction()
+    {
+        match ($this->confirmAction) {
+            'deletePatient' => $this->reallyDeletePatient(),
+            'deleteConsult' => $this->reallyDeleteConsult($this->confirmTargetId),
+            default => null,
+        };
+
+        $this->showConfirmModal = false;
+    }
     public string $newFirstName = '';
     public string $newLastName = '';
     public string $newDob = '';
@@ -42,10 +72,17 @@ class Patients extends Component
 
     // ---- Nouvelle consultation ----
     public bool $showConsultModal = false;
+    public ?int $consultTypeId = null;
     public string $consultMotif = '';
     public string $consultDiagnostic = '';
     public string $consultPrescriptions = '';
     public string $consultExams = '';
+
+    // ---- Nouveau type de consultation (créé à la volée) ----
+    public bool $showNewTypeModal = false;
+    public string $newTypeCode = '';
+    public string $newTypeLabel = '';
+    public string $newTypeColor = '#C0410C';
 
     // ---- Nouveau document ----
     public bool $showDocModal = false;
@@ -108,12 +145,20 @@ class Patients extends Component
         }
 
         $this->validate([
-            'newFirstName' => 'required|min:2',
-            'newLastName' => 'nullable',
-            'newPhone' => 'required|unique:patients,phone',
+            'newFirstName' => ['required', 'min:2', 'regex:/^[\p{L}\s\-\']+$/u'],
+            'newLastName' => ['nullable', 'regex:/^[\p{L}\s\-\']*$/u'],
+            'newPhone' => ['required', 'unique:patients,phone', 'regex:/^[0-9+\-\s]+$/'],
+            'newEmergencyName' => ['nullable', 'regex:/^[\p{L}\s\-\']*$/u'],
+            'newEmergencyPhone' => ['nullable', 'regex:/^[0-9+\-\s]*$/'],
             'newDob' => 'nullable|date',
             'newEmail' => 'nullable|email',
-        ], [], [
+        ], [
+            'newFirstName.regex' => 'Le prénom ne doit contenir que des lettres.',
+            'newLastName.regex' => 'Le nom ne doit contenir que des lettres.',
+            'newPhone.regex' => 'Le téléphone ne doit contenir que des chiffres.',
+            'newEmergencyName.regex' => 'Ce champ ne doit contenir que des lettres.',
+            'newEmergencyPhone.regex' => 'Ce champ ne doit contenir que des chiffres.',
+        ], [
             'newFirstName' => 'prénom', 'newPhone' => 'téléphone',
         ]);
 
@@ -137,6 +182,110 @@ class Patients extends Component
         $this->selectedPatientId = $patient->id;
         $this->activeTab = 'resume';
         $this->dispatch('toast', message: $patient->first_name . ' ajoutée aux dossiers patients.');
+    }
+
+    // ---------- Modifier patiente ----------
+
+    public bool $showEditPatientModal = false;
+    public string $editFirstName = '';
+    public string $editLastName = '';
+    public string $editDob = '';
+    public string $editSex = 'F';
+    public string $editPhone = '';
+    public string $editEmail = '';
+    public string $editAddress = '';
+    public string $editEmergencyName = '';
+    public string $editEmergencyPhone = '';
+    public string $editHistory = '';
+
+    public function openEditPatient()
+    {
+        $patient = Patient::findOrFail($this->selectedPatientId);
+
+        if (! in_array(Auth::user()->role, ['admin', 'reception'], true)) {
+            abort(403);
+        }
+
+        $this->editFirstName = $patient->first_name;
+        $this->editLastName = $patient->last_name ?? '';
+        $this->editDob = $patient->date_of_birth?->toDateString() ?? '';
+        $this->editSex = $patient->sex;
+        $this->editPhone = $patient->phone;
+        $this->editEmail = $patient->email ?? '';
+        $this->editAddress = $patient->address ?? '';
+        $this->editEmergencyName = $patient->emergency_contact_name ?? '';
+        $this->editEmergencyPhone = $patient->emergency_contact_phone ?? '';
+        $this->editHistory = $patient->declared_history ?? '';
+        $this->resetErrorBag();
+        $this->showEditPatientModal = true;
+    }
+
+    public function closeEditPatient()
+    {
+        $this->showEditPatientModal = false;
+    }
+
+    public function saveEditPatient()
+    {
+        if (! in_array(Auth::user()->role, ['admin', 'reception'], true)) {
+            abort(403);
+        }
+
+        $patient = Patient::findOrFail($this->selectedPatientId);
+
+        $this->validate([
+            'editFirstName' => ['required', 'min:2', 'regex:/^[\p{L}\s\-\']+$/u'],
+            'editLastName' => ['nullable', 'regex:/^[\p{L}\s\-\']*$/u'],
+            'editPhone' => ['required', 'unique:patients,phone,' . $patient->id, 'regex:/^[0-9+\-\s]+$/'],
+            'editEmergencyName' => ['nullable', 'regex:/^[\p{L}\s\-\']*$/u'],
+            'editEmergencyPhone' => ['nullable', 'regex:/^[0-9+\-\s]*$/'],
+            'editDob' => 'nullable|date',
+            'editEmail' => 'nullable|email',
+        ], [
+            'editFirstName.regex' => 'Le prénom ne doit contenir que des lettres.',
+            'editLastName.regex' => 'Le nom ne doit contenir que des lettres.',
+            'editPhone.regex' => 'Le téléphone ne doit contenir que des chiffres.',
+            'editEmergencyName.regex' => 'Ce champ ne doit contenir que des lettres.',
+            'editEmergencyPhone.regex' => 'Ce champ ne doit contenir que des chiffres.',
+        ], ['editFirstName' => 'prénom', 'editPhone' => 'téléphone']);
+
+        $patient->update([
+            'first_name' => $this->editFirstName,
+            'last_name' => $this->editLastName ?: null,
+            'date_of_birth' => $this->editDob ?: null,
+            'sex' => $this->editSex,
+            'phone' => $this->editPhone,
+            'email' => $this->editEmail ?: null,
+            'address' => $this->editAddress ?: null,
+            'emergency_contact_name' => $this->editEmergencyName ?: null,
+            'emergency_contact_phone' => $this->editEmergencyPhone ?: null,
+            'declared_history' => $this->editHistory ?: null,
+        ]);
+
+        $this->showEditPatientModal = false;
+        $this->dispatch('toast', message: 'Fiche patiente mise à jour.');
+    }
+
+    // ---------- Retirer patiente ----------
+
+    /**
+     * Retire la patiente de la liste sans jamais perdre ses données : on
+     * utilise la suppression douce déjà en place sur le modèle (SoftDeletes),
+     * donc consultations, documents et constantes restent en base, juste
+     * plus visibles dans l'appli. Réservé à l'admin, vu la sensibilité.
+     */
+    protected function reallyDeletePatient()
+    {
+        if (! Auth::user()->isAdmin()) {
+            abort(403);
+        }
+
+        $patient = Patient::findOrFail($this->selectedPatientId);
+        $name = $patient->first_name;
+        $patient->delete();
+
+        $this->selectedPatientId = null;
+        $this->dispatch('toast', message: $name . ' retirée des dossiers patients.');
     }
 
     // ---------- Import Excel ----------
@@ -285,6 +434,7 @@ class Patients extends Component
         }
 
         $this->editingConsultId = null;
+        $this->consultTypeId = null;
         $this->consultMotif = '';
         $this->consultDiagnostic = '';
         $this->consultPrescriptions = '';
@@ -303,6 +453,7 @@ class Patients extends Component
         }
 
         $this->editingConsultId = $consult->id;
+        $this->consultTypeId = $consult->consultation_type_id;
         $this->consultMotif = $consult->motif;
         $this->consultDiagnostic = $consult->diagnostic ?? '';
         $this->consultPrescriptions = $consult->prescriptions ?? '';
@@ -311,7 +462,7 @@ class Patients extends Component
         $this->showConsultModal = true;
     }
 
-    public function deleteConsult(int $id)
+    protected function reallyDeleteConsult(?int $id)
     {
         $consult = Consultation::findOrFail($id);
         $user = Auth::user();
@@ -329,6 +480,44 @@ class Patients extends Component
         $this->showConsultModal = false;
     }
 
+    // ---------- Nouveau type de consultation ----------
+
+    public function openNewType()
+    {
+        if (Auth::user()->role !== 'medecin' && ! Auth::user()->isAdmin()) {
+            abort(403);
+        }
+
+        $this->newTypeCode = '';
+        $this->newTypeLabel = '';
+        $this->newTypeColor = '#C0410C';
+        $this->resetErrorBag();
+        $this->showNewTypeModal = true;
+    }
+
+    public function closeNewType()
+    {
+        $this->showNewTypeModal = false;
+    }
+
+    public function saveNewType()
+    {
+        $this->validate([
+            'newTypeCode' => 'required|max:10|unique:consultation_types,code',
+            'newTypeLabel' => 'required|min:2',
+        ], [], ['newTypeCode' => 'code', 'newTypeLabel' => 'libellé']);
+
+        $type = \App\Models\ConsultationType::create([
+            'code' => strtoupper($this->newTypeCode),
+            'label' => $this->newTypeLabel,
+            'color' => $this->newTypeColor,
+        ]);
+
+        $this->consultTypeId = $type->id;
+        $this->showNewTypeModal = false;
+        $this->dispatch('toast', message: 'Type "' . $type->label . '" créé et sélectionné.');
+    }
+
     public function saveConsult()
     {
         $this->validate(['consultMotif' => 'required|min:3'], [], ['consultMotif' => 'motif']);
@@ -341,6 +530,7 @@ class Patients extends Component
         }
 
         $data = [
+            'consultation_type_id' => $this->consultTypeId ?: null,
             'motif' => $this->consultMotif,
             'diagnostic' => $this->consultDiagnostic ?: null,
             'prescriptions' => $this->consultPrescriptions ?: null,
@@ -504,7 +694,7 @@ class Patients extends Component
 
             if ($selectedPatient && Auth::user()->can('view', $selectedPatient)) {
                 $canViewClinical = Auth::user()->can('viewClinicalDetails', $selectedPatient);
-                $consultations = $selectedPatient->consultations()->with('doctor.user')->latest('consulted_at')->simplePaginate(8, ['*'], 'consultPage');
+                $consultations = $selectedPatient->consultations()->with(['doctor.user', 'type'])->latest('consulted_at')->simplePaginate(8, ['*'], 'consultPage');
                 $documents = $selectedPatient->documents()->with('uploadedBy')->latest()->simplePaginate(8, ['*'], 'docPage');
                 $vitals = $selectedPatient->vitals()->with('recordedBy')->latest('recorded_at')->simplePaginate(8, ['*'], 'vitalsPage');
 
@@ -526,9 +716,13 @@ class Patients extends Component
             'canViewClinical' => $canViewClinical,
             'canViewAuditLog' => $user->isAdmin(),
             'canAddConsult' => $user->role === 'medecin',
+            'consultationTypes' => \App\Models\ConsultationType::where('is_active', true)->orderBy('code')->get(),
             'canAddDoc' => in_array($user->role, ['medecin', 'admin', 'reception'], true),
             'canAddVitals' => in_array($user->role, ['aide_soignant', 'medecin', 'admin'], true),
             'canCreatePatient' => $user->can('create', Patient::class),
+            'canManageTypes' => $user->role === 'medecin' || $user->isAdmin(),
+            'canEditPatient' => in_array($user->role, ['admin', 'reception'], true),
+            'canDeletePatient' => $user->isAdmin(),
         ])->layout('layouts.app', ['notifications' => collect()]);
     }
 }

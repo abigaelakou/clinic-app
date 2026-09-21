@@ -95,8 +95,7 @@
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);" wire:click="openCancel({{ $appt->id }})">Annuler</button>
                                     @if($canDelete)
                                         <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);"
-                                                wire:click="deleteAppointment({{ $appt->id }})"
-                                                onclick="return confirm('Supprimer définitivement ce rendez-vous ?')">🗑</button>
+                                                wire:click="askConfirmDelete({{ $appt->id }})">🗑</button>
                                     @endif
                                 </div>
                             @endif
@@ -278,6 +277,18 @@
                     </div>
                 </form>
             @endif
+        </div>
+    </div>
+
+    {{-- ===== Modale de confirmation générique ===== --}}
+    <div class="modal-backdrop {{ $showConfirmModal ? 'active' : '' }}" wire:click.self="closeConfirm">
+        <div class="modal-card" style="max-width:380px;">
+            <div class="confirm-icon">⚠</div>
+            <div class="confirm-text">{{ $confirmMessage }}</div>
+            <div class="form-actions">
+                <button type="button" class="btn ghost" wire:click="closeConfirm">Annuler</button>
+                <button type="button" class="btn" style="background:var(--crit);" wire:click="runConfirmedAction">Confirmer</button>
+            </div>
         </div>
     </div>
 

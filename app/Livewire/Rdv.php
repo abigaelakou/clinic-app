@@ -19,6 +19,29 @@ class Rdv extends Component
 
     // ---- Annulation ----
     public bool $showCancelModal = false;
+
+    // ---- Modale de confirmation générique ----
+    public bool $showConfirmModal = false;
+    public string $confirmMessage = '';
+    public ?int $confirmTargetId = null;
+
+    public function askConfirmDelete(int $id)
+    {
+        $this->confirmTargetId = $id;
+        $this->confirmMessage = 'Supprimer définitivement ce rendez-vous ? Cette action est irréversible.';
+        $this->showConfirmModal = true;
+    }
+
+    public function closeConfirm()
+    {
+        $this->showConfirmModal = false;
+    }
+
+    public function runConfirmedAction()
+    {
+        $this->reallyDeleteAppointment($this->confirmTargetId);
+        $this->showConfirmModal = false;
+    }
     public ?int $cancelAppointmentId = null;
     public string $cancelReason = '';
 
@@ -87,7 +110,7 @@ class Rdv extends Component
     }
 
     /** Suppression définitive — réservée à l'admin, contrairement à "Annuler" qui garde une trace. */
-    public function deleteAppointment(int $id)
+    protected function reallyDeleteAppointment(?int $id)
     {
         if (! Auth::user()->isAdmin()) {
             abort(403);

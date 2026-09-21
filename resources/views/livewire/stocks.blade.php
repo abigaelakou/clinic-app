@@ -79,8 +79,7 @@
                                         <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;" wire:click="openMovement({{ $product->id }})">Mouvement</button>
                                         <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;" wire:click="openEditProduct({{ $product->id }})">Modifier</button>
                                         <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;color:var(--crit);"
-                                                wire:click="deleteProduct({{ $product->id }})"
-                                                onclick="return confirm('Retirer {{ $product->name }} du stock ?')">Suppr.</button>
+                                                wire:click="askConfirmDelete({{ $product->id }}, '{{ addslashes($product->name) }}')">Suppr.</button>
                                     @endif
                                 </td>
                             </tr>
@@ -307,6 +306,18 @@
                     <button type="submit" class="btn">Enregistrer</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale de confirmation générique ===== --}}
+    <div class="modal-backdrop {{ $showConfirmModal ? 'active' : '' }}" wire:click.self="closeConfirm">
+        <div class="modal-card" style="max-width:380px;">
+            <div class="confirm-icon">⚠</div>
+            <div class="confirm-text">{{ $confirmMessage }}</div>
+            <div class="form-actions">
+                <button type="button" class="btn ghost" wire:click="closeConfirm">Annuler</button>
+                <button type="button" class="btn" style="background:var(--crit);" wire:click="runConfirmedAction">Confirmer</button>
+            </div>
         </div>
     </div>
 </div>
