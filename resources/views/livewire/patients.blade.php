@@ -155,7 +155,7 @@
                                         @endif
                                     </div>
                                 </div>
-                                <a href="{{ asset('storage/'.$doc->file_path) }}" target="_blank" class="btn ghost" style="padding:6px 10px;font-size:11px;">Ouvrir</a>
+                                <a href="{{ tenant_asset($doc->file_path) }}" target="_blank" class="btn ghost" style="padding:6px 10px;font-size:11px;">Ouvrir</a>
                             </div>
                         @empty
                             <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucun document.</div>

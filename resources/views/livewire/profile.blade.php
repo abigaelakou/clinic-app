@@ -9,8 +9,13 @@
     <div class="grid-2" style="align-items:flex-start;">
         <div style="flex:1 1 260px; max-width:280px;">
             <div class="card" style="padding:22px;text-align:center;">
-                @if($user->avatar_path)
-                    <img src="{{ asset('storage/'.$user->avatar_path) }}" alt="Photo de profil"
+                @if($newAvatar)
+                    {{-- Prévisualisation de la photo tout juste sélectionnée, pas encore enregistrée --}}
+                    <img src="{{ $newAvatar->temporaryUrl() }}" alt="Prévisualisation"
+                         style="width:96px;height:96px;border-radius:50%;object-fit:cover;margin:0 auto 6px;display:block;border:3px solid var(--clay);">
+                    <div style="font-size:11px;color:var(--clay);font-weight:600;margin-bottom:10px;">Aperçu — pas encore enregistré</div>
+                @elseif($user->avatar_path)
+                    <img src="{{ tenant_asset($user->avatar_path) }}" alt="Photo de profil"
                          style="width:96px;height:96px;border-radius:50%;object-fit:cover;margin:0 auto 14px;display:block;border:3px solid var(--stone);">
                 @else
                     <div class="avatar" style="width:96px;height:96px;font-size:32px;margin:0 auto 14px;background:linear-gradient(135deg,#C0410C,#7a2707);">

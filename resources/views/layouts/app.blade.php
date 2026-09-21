@@ -57,7 +57,7 @@
         <div class="sidebar-foot">
             <a href="{{ route('profile') }}" class="user-chip" style="text-decoration:none;color:inherit;">
                 @if(auth()->user()?->avatar_path)
-                    <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">
+                    <img src="{{ tenant_asset(auth()->user()->avatar_path) }}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">
                 @else
                     <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
                 @endif
@@ -114,7 +114,7 @@
                 </div>
                 <a href="{{ route('profile') }}" class="user-chip" style="background:var(--stone);padding:6px 12px 6px 6px;border-radius:999px;text-decoration:none;">
                     @if(auth()->user()?->avatar_path)
-                        <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
+                        <img src="{{ tenant_asset(auth()->user()->avatar_path) }}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
                     @else
                         <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
                     @endif
