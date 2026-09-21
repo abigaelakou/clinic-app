@@ -10,6 +10,8 @@ use App\Livewire\Dashboard;
 use App\Livewire\Rdv;
 use App\Livewire\Stocks;
 use App\Livewire\Patients;
+use App\Livewire\Users;
+use App\Livewire\Profile;
 use App\Livewire\Auth\Login;
 use App\Models\Product;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -46,6 +48,8 @@ Route::middleware([
         Route::get('/rendez-vous', Rdv::class)->name('rdv');
         Route::get('/stocks', Stocks::class)->name('stocks');
         Route::get('/dossiers-patients', Patients::class)->name('patients');
+        Route::get('/utilisateurs', Users::class)->name('users');
+        Route::get('/mon-profil', Profile::class)->name('profile');
 
         Route::get('/dossiers-patients/modele-import', function () {
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();

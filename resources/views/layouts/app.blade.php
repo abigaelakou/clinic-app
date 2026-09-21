@@ -48,14 +48,24 @@
             <span class="ic">💊</span> Stocks
         </a>
         @endif
+        @if(auth()->user()?->isAdmin())
+        <div class="nav-section-label">Administration</div>
+        <a href="{{ route('users') }}" class="nav-item {{ request()->routeIs('users') ? 'active' : '' }}">
+            <span class="ic">👤</span> Utilisateurs & droits
+        </a>
+        @endif
         <div class="sidebar-foot">
-            <div class="user-chip">
-                <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
+            <a href="{{ route('profile') }}" class="user-chip" style="text-decoration:none;color:inherit;">
+                @if(auth()->user()?->avatar_path)
+                    <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">
+                @else
+                    <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
+                @endif
                 <div>
                     <div class="user-name">{{ auth()->user()->name ?? 'Invité' }}</div>
                     <div class="user-role">{{ auth()->user()->role ?? '' }}</div>
                 </div>
-            </div>
+            </a>
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="logout-link">↩ Se déconnecter</button>
@@ -102,9 +112,13 @@
                         </div>
                     </div>
                 </div>
-                <div class="user-chip" style="background:var(--stone);padding:6px 12px 6px 6px;border-radius:999px;">
-                    <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
-                </div>
+                <a href="{{ route('profile') }}" class="user-chip" style="background:var(--stone);padding:6px 12px 6px 6px;border-radius:999px;text-decoration:none;">
+                    @if(auth()->user()?->avatar_path)
+                        <img src="{{ asset('storage/'.auth()->user()->avatar_path) }}" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;">
+                    @else
+                        <div class="avatar">{{ strtoupper(substr(auth()->user()->name ?? '?', 0, 1)) }}</div>
+                    @endif
+                </a>
             </div>
         </div>
         <div class="content">
