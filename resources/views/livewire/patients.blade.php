@@ -31,16 +31,6 @@
                 @empty
                     <div style="padding:16px 18px;font-size:12.5px;color:var(--ink-soft);">Aucune patiente trouvée.</div>
                 @endforelse
-
-                @if($patients->hasPages())
-                    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--line);">
-                        <button class="btn ghost" style="padding:6px 11px;font-size:11px;{{ $patients->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}"
-                                wire:click="previousPage" wire:loading.attr="disabled">← Précédent</button>
-                        <span style="font-size:11px;color:var(--ink-faint);">Page {{ $patients->currentPage() }}</span>
-                        <button class="btn ghost" style="padding:6px 11px;font-size:11px;{{ ! $patients->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}"
-                                wire:click="nextPage" wire:loading.attr="disabled">Suivant →</button>
-                    </div>
-                @endif
             </div>
         </div>
 
@@ -109,6 +99,13 @@
                         @empty
                             <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucune consultation enregistrée.</div>
                         @endforelse
+                        @if(method_exists($consultations, 'hasPages') && $consultations->hasPages())
+                            <div class="pager">
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $consultations->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('consultPage')">← Préc.</button>
+                                <span class="pg-info">Page {{ $consultations->currentPage() }}</span>
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $consultations->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('consultPage')">Suiv. →</button>
+                            </div>
+                        @endif
                     @endif
 
                     {{-- ===== Documents ===== --}}
@@ -119,12 +116,21 @@
                             @endif
                         </div>
                         @forelse($documents as $doc)
+                            @php
+                                $ext = strtolower(pathinfo($doc->file_path, PATHINFO_EXTENSION));
+                                $fileIcon = match(true) {
+                                    $ext === 'pdf' => '📄',
+                                    in_array($ext, ['jpg','jpeg','png']) => '🖼️',
+                                    in_array($ext, ['doc','docx']) => '📝',
+                                    default => '📎',
+                                };
+                            @endphp
                             <div class="consult-row">
                                 <div class="consult-date">{{ $doc->created_at->format('d M Y') }}</div>
                                 <div class="consult-info">
-                                    <b>{{ $doc->title }}</b>
+                                    <b>{{ $fileIcon }} {{ $doc->title }}</b>
                                     <div class="prod-cat">
-                                        {{ ucfirst($doc->type) }} · par {{ $doc->uploadedBy->name ?? '' }}
+                                        {{ ucfirst($doc->type) }} · {{ strtoupper($ext) }} · par {{ $doc->uploadedBy->name ?? '' }}
                                         @if($doc->shared_with_patient)
                                             <span style="color:var(--ok);font-weight:700;"> · Partagé avec la patiente</span>
                                         @else
@@ -137,6 +143,13 @@
                         @empty
                             <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucun document.</div>
                         @endforelse
+                        @if(method_exists($documents, 'hasPages') && $documents->hasPages())
+                            <div class="pager">
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $documents->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('docPage')">← Préc.</button>
+                                <span class="pg-info">Page {{ $documents->currentPage() }}</span>
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $documents->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('docPage')">Suiv. →</button>
+                            </div>
+                        @endif
                     @endif
 
                     {{-- ===== Constantes ===== --}}
@@ -165,6 +178,13 @@
                         @empty
                             <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucune constante enregistrée.</div>
                         @endforelse
+                        @if(method_exists($vitalsList, 'hasPages') && $vitalsList->hasPages())
+                            <div class="pager">
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $vitalsList->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('vitalsPage')">← Préc.</button>
+                                <span class="pg-info">Page {{ $vitalsList->currentPage() }}</span>
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $vitalsList->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('vitalsPage')">Suiv. →</button>
+                            </div>
+                        @endif
                     @endif
 
                     {{-- ===== Journal d'accès ===== --}}
@@ -183,6 +203,13 @@
                         @empty
                             <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucun accès enregistré pour l'instant.</div>
                         @endforelse
+                        @if(method_exists($accessLogs, 'hasPages') && $accessLogs->hasPages())
+                            <div class="pager">
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $accessLogs->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('journalPage')">← Préc.</button>
+                                <span class="pg-info">Page {{ $accessLogs->currentPage() }}</span>
+                                <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $accessLogs->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('journalPage')">Suiv. →</button>
+                            </div>
+                        @endif
                     @endif
                 </div>
             @else
@@ -235,8 +262,8 @@
             </div>
             <form wire:submit="saveDoc">
                 <div class="form-field">
-                    <label>Titre</label>
-                    <input type="text" wire:model="docTitle" placeholder="Ex : Ordonnance fer et acide folique">
+                    <label>Titre (optionnel)</label>
+                    <input type="text" wire:model="docTitle" placeholder="Laisse vide pour utiliser le nom du fichier">
                     @error('docTitle') <div class="field-error">{{ $message }}</div> @enderror
                 </div>
                 <div class="form-field">
@@ -249,9 +276,13 @@
                     </select>
                 </div>
                 <div class="form-field">
-                    <label>Fichier</label>
-                    <input type="file" wire:model="docFile">
+                    <label>Fichier(s)</label>
+                    <input type="file" wire:model="docFile" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" multiple>
+                    <div style="font-size:11px;color:var(--ink-faint);margin-top:4px;">
+                        PDF, image (JPG/PNG) ou document Word — 25 Mo max par fichier. Tu peux en sélectionner plusieurs à la fois (Ctrl+clic ou Cmd+clic).
+                    </div>
                     @error('docFile') <div class="field-error">{{ $message }}</div> @enderror
+                    @error('docFile.*') <div class="field-error">{{ $message }}</div> @enderror
                     <div wire:loading wire:target="docFile" style="font-size:11.5px;color:var(--ink-soft);margin-top:4px;">Envoi en cours…</div>
                 </div>
                 <div class="form-field">

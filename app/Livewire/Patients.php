@@ -52,7 +52,7 @@ class Patients extends Component
     public string $docTitle = '';
     public string $docType = 'ordonnance';
     public bool $docShared = false;
-    public $docFile = null;
+    public $docFile = [];
 
     // ---- Nouvelles constantes ----
     public bool $showVitalsModal = false;
@@ -265,6 +265,10 @@ class Patients extends Component
 
         $this->selectedPatientId = $id;
         $this->activeTab = 'resume';
+        $this->resetPage('consultPage');
+        $this->resetPage('docPage');
+        $this->resetPage('vitalsPage');
+        $this->resetPage('journalPage');
     }
 
     public function setTab(string $tab)
@@ -360,6 +364,7 @@ class Patients extends Component
         }
 
         $this->showConsultModal = false;
+        $this->resetPage('consultPage');
         $this->dispatch('toast', message: $message);
     }
 
@@ -374,7 +379,7 @@ class Patients extends Component
         $this->docTitle = '';
         $this->docType = 'ordonnance';
         $this->docShared = false;
-        $this->docFile = null;
+        $this->docFile = [];
         $this->resetErrorBag();
         $this->showDocModal = true;
     }
@@ -387,9 +392,13 @@ class Patients extends Component
     public function saveDoc()
     {
         $this->validate([
-            'docTitle' => 'required|min:2',
-            'docFile' => 'required|file|max:10240',
-        ], [], ['docTitle' => 'titre', 'docFile' => 'fichier']);
+            'docFile' => 'required|array|min:1',
+            'docFile.*' => 'file|mimes:pdf,jpg,jpeg,png,doc,docx|max:25600',
+        ], [
+            'docFile.required' => 'Choisis au moins un fichier.',
+            'docFile.*.mimes' => 'Formats acceptés : PDF, image (JPG/PNG), ou document Word (DOC/DOCX).',
+            'docFile.*.max' => 'Chaque fichier doit faire moins de 25 Mo.',
+        ]);
 
         $patient = Patient::findOrFail($this->selectedPatientId);
 
@@ -397,19 +406,32 @@ class Patients extends Component
             abort(403);
         }
 
-        $path = $this->docFile->store('documents', 'public');
+        $files = is_array($this->docFile) ? $this->docFile : [$this->docFile];
+        $count = count($files);
 
-        MedicalDocument::create([
-            'patient_id' => $patient->id,
-            'uploaded_by' => Auth::id(),
-            'title' => $this->docTitle,
-            'type' => $this->docType,
-            'file_path' => $path,
-            'shared_with_patient' => $this->docShared,
-        ]);
+        foreach ($files as $i => $file) {
+            $path = $file->store('documents', 'public');
+
+            // Titre : celui saisi (avec un numéro si plusieurs fichiers), sinon le nom du fichier.
+            if (trim($this->docTitle) !== '') {
+                $title = $count > 1 ? $this->docTitle . ' (' . ($i + 1) . ')' : $this->docTitle;
+            } else {
+                $title = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
+            }
+
+            MedicalDocument::create([
+                'patient_id' => $patient->id,
+                'uploaded_by' => Auth::id(),
+                'title' => $title,
+                'type' => $this->docType,
+                'file_path' => $path,
+                'shared_with_patient' => $this->docShared,
+            ]);
+        }
 
         $this->showDocModal = false;
-        $this->dispatch('toast', message: 'Document ajouté au dossier.');
+        $this->resetPage('docPage');
+        $this->dispatch('toast', message: $count > 1 ? $count . ' documents ajoutés au dossier.' : 'Document ajouté au dossier.');
     }
 
     // ---------- Nouvelles constantes ----------
@@ -453,6 +475,7 @@ class Patients extends Component
         ]);
 
         $this->showVitalsModal = false;
+        $this->resetPage('vitalsPage');
         $this->dispatch('toast', message: 'Constantes enregistrées.');
     }
 
@@ -481,12 +504,12 @@ class Patients extends Component
 
             if ($selectedPatient && Auth::user()->can('view', $selectedPatient)) {
                 $canViewClinical = Auth::user()->can('viewClinicalDetails', $selectedPatient);
-                $consultations = $selectedPatient->consultations()->with('doctor.user')->latest('consulted_at')->get();
-                $documents = $selectedPatient->documents()->with('uploadedBy')->latest()->get();
-                $vitals = $selectedPatient->vitals()->with('recordedBy')->latest('recorded_at')->limit(10)->get();
+                $consultations = $selectedPatient->consultations()->with('doctor.user')->latest('consulted_at')->simplePaginate(8, ['*'], 'consultPage');
+                $documents = $selectedPatient->documents()->with('uploadedBy')->latest()->simplePaginate(8, ['*'], 'docPage');
+                $vitals = $selectedPatient->vitals()->with('recordedBy')->latest('recorded_at')->simplePaginate(8, ['*'], 'vitalsPage');
 
                 if ($user->isAdmin()) {
-                    $accessLogs = $selectedPatient->accessLogs()->with('user')->latest('accessed_at')->limit(30)->get();
+                    $accessLogs = $selectedPatient->accessLogs()->with('user')->latest('accessed_at')->simplePaginate(15, ['*'], 'journalPage');
                 }
             } else {
                 $selectedPatient = null;

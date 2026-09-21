@@ -12,7 +12,14 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Rend TOUTES les routes du groupe "web" conscientes du tenant —
+        // y compris les routes internes de Livewire (mise à jour, upload
+        // de fichier, aperçu...) qui ne passaient pas par notre détection
+        // de tenant et provoquaient des erreurs 419 sur l'upload.
+        $middleware->web(append: [
+            \Stancl\Tenancy\Middleware\InitializeTenancyByDomain::class,
+            \Stancl\Tenancy\Middleware\PreventAccessFromCentralDomains::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
