@@ -595,3 +595,133 @@ table tbody tr:hover{ box-shadow: inset 3px 0 0 var(--clay); }
   display:flex; align-items:center; justify-content:center; font-size:20px; margin:0 auto 14px;
 }
 .confirm-text{ text-align:center; font-size:13.5px; color:var(--ink); line-height:1.5; margin-bottom:20px; }
+
+/* ============================================================
+   PASSE 3 — Chaleur et joie : accents colorés, icônes, douceur
+   ============================================================ */
+
+:root{
+  --peach:#F4A15C; --peach-tint:#FDF0E1;
+  --mint:#3F9E8A; --mint-tint:#E1F3EE;
+  --sky:#4C8FC0; --sky-tint:#E4EFF9;
+  --lavender:#8B6EC7; --lavender-tint:#EEE7F9;
+  --gold:#D9A441; --gold-tint:#FBF1DD;
+}
+
+body{
+  background:
+    radial-gradient(1100px 480px at 92% -8%, rgba(192,65,12,0.05), transparent 60%),
+    radial-gradient(700px 360px at -6% 8%, rgba(244,161,92,0.06), transparent 55%),
+    var(--stone);
+}
+
+@keyframes fameFadeUp{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+.card{ animation: fameFadeUp .35s ease both; }
+
+/* Icône colorée optionnelle devant un titre de carte — utilisation :
+   <h2><span class="card-icon i-peach">📅</span>Titre</h2> */
+.card-icon{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:9px; font-size:14px; margin-right:9px;
+  vertical-align:middle; position:relative; top:-1px;
+}
+.card-icon.i-peach{ background:var(--peach-tint); }
+.card-icon.i-mint{ background:var(--mint-tint); }
+.card-icon.i-sky{ background:var(--sky-tint); }
+.card-icon.i-lavender{ background:var(--lavender-tint); }
+.card-icon.i-gold{ background:var(--gold-tint); }
+.card-icon.i-clay{ background:var(--clay-tint); }
+
+/* Liseré dégradé discret sous le titre de page */
+.page-head h1{ position:relative; display:inline-block; }
+.page-head > div:first-child::after{
+  content:""; display:block; width:46px; height:3px; border-radius:3px; margin-top:8px;
+  background:linear-gradient(90deg, var(--peach), var(--clay));
+}
+
+/* Salutation avec emoji flottant (tableau de bord) */
+@keyframes fameFloat{ 0%,100%{ transform:translateY(0) rotate(0deg); } 50%{ transform:translateY(-6px) rotate(3deg); } }
+.greet-emoji{ display:inline-block; animation: fameFloat 3s ease-in-out infinite; margin-right:4px; }
+
+/* Variante dégradée douce pour les swatch de KPI (usage optionnel) */
+.kpi .swatch.grad-peach{ background:linear-gradient(135deg, var(--peach-tint), var(--peach)); color:#fff; }
+.kpi .swatch.grad-mint{ background:linear-gradient(135deg, var(--mint-tint), var(--mint)); color:#fff; }
+.kpi .swatch.grad-sky{ background:linear-gradient(135deg, var(--sky-tint), var(--sky)); color:#fff; }
+.kpi .swatch.grad-lavender{ background:linear-gradient(135deg, var(--lavender-tint), var(--lavender)); color:#fff; }
+
+/* Coins un peu plus doux partout, sans rien casser */
+:root{ --radius-s:9px; --radius-m:16px; --radius-l:22px; }
+
+/* ============================================================
+   PASSE 4 — Plus de couleur, plus d'air : le vrai wahou
+   ============================================================ */
+
+/* Fond général nettement plus vivant */
+body{
+  background:
+    radial-gradient(1200px 560px at 96% -10%, rgba(192,65,12,0.10), transparent 55%),
+    radial-gradient(900px 480px at -8% 4%, rgba(244,161,92,0.13), transparent 55%),
+    radial-gradient(700px 420px at 50% 110%, rgba(139,110,199,0.07), transparent 55%),
+    var(--stone) !important;
+}
+
+/* Sidebar plus chaleureuse, avec une pointe de couleur */
+.sidebar{
+  background:
+    radial-gradient(340px 220px at 100% 0%, rgba(244,161,92,0.16), transparent 60%),
+    radial-gradient(300px 240px at 0% 100%, rgba(139,110,199,0.14), transparent 60%),
+    linear-gradient(180deg, #241A15 0%, #2E211A 100%) !important;
+}
+
+/* En-tête de page : mini "hero" coloré au lieu de texte nu sur fond blanc */
+.page-head{
+  background:
+    radial-gradient(420px 200px at 100% -30%, rgba(244,161,92,0.20), transparent 65%),
+    radial-gradient(320px 200px at 0% 130%, rgba(192,65,12,0.08), transparent 65%),
+    var(--stone-2);
+  border:1px solid var(--line);
+  border-radius: var(--radius-l);
+  padding: 22px 26px;
+  box-shadow: var(--shadow);
+}
+.page-head > div:first-child::after{ margin-top:10px; }
+
+/* KPI : couleur visible en permanence, pas seulement au survol */
+.kpi{
+  border-top: 3px solid var(--clay) !important;
+  background:
+    linear-gradient(180deg, rgba(244,161,92,0.05), transparent 40%),
+    var(--stone-2) !important;
+}
+.kpi .swatch{ box-shadow: 0 4px 10px -4px rgba(36,26,21,0.25); }
+
+/* Cartes : léger filet dégradé sous le titre, plus d'air à l'intérieur */
+.card-head{ border-bottom: 1px solid var(--line); margin-bottom: 4px; padding-bottom: 14px !important; }
+.card-head h2{ display:flex; align-items:center; }
+
+/* Tableaux : plus respirés, coins ronds, lignes alternées douces, en-tête coloré */
+.table-wrap{
+  border-radius: var(--radius-m); overflow:hidden; border:1px solid var(--line);
+  margin-top:14px;
+}
+table{ font-size:13.5px; }
+thead th{
+  padding:14px 22px !important; font-size:10.5px !important;
+  background: linear-gradient(180deg, var(--clay-tint-2), var(--stone));
+  color: var(--clay-dark) !important; border-bottom:1.5px solid var(--line) !important;
+}
+tbody td{ padding:16px 22px !important; }
+tbody tr:nth-child(even){ background: rgba(243,245,242,0.55); }
+tbody tr:hover{ background: var(--clay-tint-2) !important; }
+
+/* Cartes de liste (patientes, produits, utilisateurs...) : un peu plus d'air */
+.pat-item, .cat-item{ padding-top:12px !important; padding-bottom:12px !important; }
+
+/* Boutons principaux : dégradé au lieu d'un aplat, plus de vie */
+.btn:not(.ghost){
+  background: linear-gradient(135deg, var(--peach), var(--clay)) !important;
+  border:none !important;
+  box-shadow: 0 6px 16px -6px rgba(192,65,12,0.45);
+  transition: transform .12s, box-shadow .12s;
+}
+.btn:not(.ghost):hover{ transform:translateY(-1px); box-shadow: 0 10px 20px -6px rgba(192,65,12,0.5); }

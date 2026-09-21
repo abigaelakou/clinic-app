@@ -12,6 +12,9 @@ use App\Livewire\Stocks;
 use App\Livewire\Patients;
 use App\Livewire\Users;
 use App\Livewire\Profile;
+use App\Livewire\PatientPortal\Register as PatientRegister;
+use App\Livewire\PatientPortal\Login as PatientLogin;
+use App\Livewire\PatientPortal\Dashboard as PatientDashboard;
 use App\Livewire\Auth\Login;
 use App\Models\Product;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -35,6 +38,11 @@ Route::middleware([
     });
 
     Route::get('/login', Login::class)->name('login')->middleware('guest');
+
+    // ---------- Espace patiente ----------
+    Route::get('/espace-patiente/inscription', PatientRegister::class)->name('patient.register')->middleware('guest:patient');
+    Route::get('/espace-patiente/connexion', PatientLogin::class)->name('patient.login')->middleware('guest:patient');
+    Route::get('/espace-patiente', PatientDashboard::class)->name('patient.dashboard')->middleware('auth:patient');
 
     Route::post('/logout', function () {
         Auth::logout();

@@ -71,18 +71,20 @@
 
     <div class="grid-2" style="{{ $viewMode === 'week' ? 'display:none;' : '' }}">
         <div class="card">
-            <div class="card-head"><h2>{{ $currentDay->isToday() ? "Aujourd'hui" : $currentDay->translatedFormat('l j F') }}</h2><span class="see-all">{{ $todayCount }} rendez-vous</span></div>
+            <div class="card-head"><h2><span class="card-icon i-peach">📅</span>{{ $currentDay->isToday() ? "Aujourd'hui" : $currentDay->translatedFormat('l j F') }}</h2><span class="see-all">{{ $todayCount }} rendez-vous</span></div>
             <div class="agenda">
                 @forelse($today as $appt)
                     <div class="agenda-row">
                         <div class="agenda-time">{{ $appt->scheduled_at->format('H:i') }}</div>
-                        <div class="agenda-card {{ $appt->status === 'pending' ? 'pending' : ($appt->status === 'completed' ? 'completed' : 'confirmed') }}" style="{{ $appt->status === 'cancelled' ? 'opacity:.5;' : '' }}">
+                        <div class="agenda-card {{ in_array($appt->status, ['pending', 'rescheduled']) ? 'pending' : ($appt->status === 'completed' ? 'completed' : 'confirmed') }}" style="{{ $appt->status === 'cancelled' ? 'opacity:.5;' : '' }}">
                             <div class="agenda-doc">{{ $appt->doctor->user->name ?? '' }}</div>
                             <div class="agenda-patient">{{ $appt->patient->first_name }} — {{ $appt->reason }}</div>
                             @if($appt->type === 'teleconsultation')
                                 <div class="agenda-tag tele">🎥 Vidéo</div>
                             @elseif($appt->status === 'pending')
                                 <div class="agenda-tag">En attente de confirmation</div>
+                            @elseif($appt->status === 'rescheduled')
+                                <div class="agenda-tag" style="color:var(--warn);">Nouvelle date proposée — en attente de la patiente</div>
                             @elseif($appt->status === 'cancelled')
                                 <div class="agenda-tag" style="color:var(--crit);">Annulé</div>
                             @elseif($appt->status === 'completed')
@@ -90,6 +92,9 @@
                             @endif
                             @if(! in_array($appt->status, ['cancelled', 'completed']) && $canConfirm)
                                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                                    @if(in_array($appt->status, ['pending', 'rescheduled']))
+                                        <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--ok);" wire:click="confirm({{ $appt->id }})">✓ Confirmer</button>
+                                    @endif
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--ok);" wire:click="markCompleted({{ $appt->id }})">✓ Terminé</button>
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;" wire:click="openReschedule({{ $appt->id }})">Reporter</button>
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);" wire:click="openCancel({{ $appt->id }})">Annuler</button>
@@ -116,7 +121,7 @@
 
         <div>
             <div class="card" style="margin-bottom:18px;">
-                <div class="card-head"><h2>Demandes en attente</h2><span class="see-all">{{ $pending->count() }}</span></div>
+                <div class="card-head"><h2><span class="card-icon i-gold">⏳</span>Demandes en attente</h2><span class="see-all">{{ $pending->count() }}</span></div>
                 @forelse($pending as $appt)
                     <div class="req-item">
                         <div class="req-avatar">{{ strtoupper(substr($appt->patient->first_name ?? '?', 0, 1)) }}</div>
@@ -144,7 +149,7 @@
             </div>
 
             <div class="card domain-card">
-                <div class="card-head" style="padding:0 0 10px;"><h2>Rendez-vous par médecin</h2></div>
+                <div class="card-head" style="padding:0 0 10px;"><h2><span class="card-icon i-lavender">👥</span>Rendez-vous par médecin</h2></div>
                 @forelse($byDoctor as $doctorName => $appointments)
                     <div class="domain-row">
                         <div class="dname">{{ $doctorName }}</div>

@@ -19,7 +19,7 @@
         <div style="flex:1 1 280px; max-width:320px;">
             <div class="card">
                 <div class="card-head" style="padding:16px 18px 10px;">
-                    <h2 style="font-size:14.5px;">Patientes</h2>
+                    <h2 style="font-size:14.5px;"><span class="card-icon i-peach" style="width:24px;height:24px;font-size:12px;">👩</span>Patientes</h2>
                 </div>
                 <div style="padding:0 18px 12px;">
                     <input type="text" wire:model.live.debounce.200ms="search" placeholder="Rechercher un nom, un téléphone…"
@@ -27,7 +27,12 @@
                 </div>
                 @forelse($patients as $p)
                     <div class="pat-item {{ $selectedPatientId === $p->id ? 'active' : '' }}" wire:click="selectPatient({{ $p->id }})">
-                        <div class="avatar" style="background:linear-gradient(135deg,#C0410C,#7a2707);">{{ strtoupper(substr($p->first_name,0,1)) }}</div>
+                        <div class="avatar" style="background:linear-gradient(135deg,#C0410C,#7a2707);position:relative;">
+                            {{ strtoupper(substr($p->first_name,0,1)) }}
+                            @if($p->id_document_path && ! $p->identity_verified)
+                                <span title="Pièce d'identité à vérifier" style="position:absolute;top:-2px;right:-2px;width:11px;height:11px;border-radius:50%;background:var(--warn);border:2px solid var(--stone-2);"></span>
+                            @endif
+                        </div>
                         <div>
                             <div class="pat-name">{{ $p->first_name }} {{ $p->last_name }}</div>
                             <div class="pat-meta">{{ $p->age() ? $p->age().' ans' : '' }} {{ $p->phone ? '· '.$p->phone : '' }}</div>
@@ -59,20 +64,36 @@
                     </div>
 
                     <div class="pat-tabs">
-                        <div class="ptab {{ $activeTab === 'resume' ? 'active' : '' }}" wire:click="setTab('resume')">Résumé</div>
+                        <div class="ptab {{ $activeTab === 'resume' ? 'active' : '' }}" wire:click="setTab('resume')">📋 Résumé</div>
                         @if($canViewClinical)
-                            <div class="ptab {{ $activeTab === 'consultations' ? 'active' : '' }}" wire:click="setTab('consultations')">Consultations</div>
+                            <div class="ptab {{ $activeTab === 'consultations' ? 'active' : '' }}" wire:click="setTab('consultations')">🩺 Consultations</div>
                         @endif
-                        <div class="ptab {{ $activeTab === 'documents' ? 'active' : '' }}" wire:click="setTab('documents')">Documents</div>
-                        <div class="ptab {{ $activeTab === 'constantes' ? 'active' : '' }}" wire:click="setTab('constantes')">Constantes</div>
+                        <div class="ptab {{ $activeTab === 'documents' ? 'active' : '' }}" wire:click="setTab('documents')">📄 Documents</div>
+                        <div class="ptab {{ $activeTab === 'constantes' ? 'active' : '' }}" wire:click="setTab('constantes')">📊 Constantes</div>
                         @if($canViewAuditLog)
-                            <div class="ptab {{ $activeTab === 'journal' ? 'active' : '' }}" wire:click="setTab('journal')">Journal d'accès</div>
+                            <div class="ptab {{ $activeTab === 'journal' ? 'active' : '' }}" wire:click="setTab('journal')">🔍 Journal d'accès</div>
                         @endif
                     </div>
 
                     {{-- ===== Résumé ===== --}}
                     @if($activeTab === 'resume')
                         <div style="padding:4px 20px 20px;">
+                            @if(! $selectedPatient->identity_verified)
+                                <div style="background:var(--warn-tint);border-radius:var(--radius-s);padding:12px 14px;margin-bottom:16px;">
+                                    <div style="font-size:12.5px;font-weight:700;color:var(--warn);margin-bottom:6px;">⚠ Identité non vérifiée</div>
+                                    @if($selectedPatient->id_document_path)
+                                        <a href="{{ tenant_asset($selectedPatient->id_document_path) }}" target="_blank" class="btn ghost" style="padding:6px 10px;font-size:11px;">Voir la pièce envoyée</a>
+                                        @if($canEditPatient)
+                                            <button class="btn" style="padding:6px 10px;font-size:11px;margin-left:6px;" wire:click="verifyIdentity">Marquer vérifiée</button>
+                                        @endif
+                                    @else
+                                        <div style="font-size:12px;color:var(--ink-soft);">Aucune pièce envoyée en ligne pour l'instant.</div>
+                                        @if($canEditPatient)
+                                            <button class="btn" style="padding:6px 10px;font-size:11px;margin-top:6px;" wire:click="verifyIdentity">Marquer vérifiée quand même</button>
+                                        @endif
+                                    @endif
+                                </div>
+                            @endif
                             <div class="info-grid">
                                 <div><div class="info-label">Contact</div><div class="info-val">{{ $selectedPatient->phone ?: '—' }}</div></div>
                                 <div><div class="info-label">Contact d'urgence</div><div class="info-val">{{ $selectedPatient->emergency_contact_name ? $selectedPatient->emergency_contact_name.' — '.$selectedPatient->emergency_contact_phone : '—' }}</div></div>

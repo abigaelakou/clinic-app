@@ -420,6 +420,18 @@ class Patients extends Component
         $this->resetPage('journalPage');
     }
 
+    public function verifyIdentity()
+    {
+        if (! in_array(Auth::user()->role, ['admin', 'reception'], true)) {
+            abort(403);
+        }
+
+        $patient = Patient::findOrFail($this->selectedPatientId);
+        $patient->update(['identity_verified' => true]);
+
+        $this->dispatch('toast', message: 'Identité de ' . $patient->first_name . ' vérifiée.');
+    }
+
     public function setTab(string $tab)
     {
         $this->activeTab = $tab;

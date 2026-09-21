@@ -41,7 +41,7 @@
 
         <div style="flex:2.2 1 420px;">
             <div class="card" style="margin-bottom:18px;">
-                <div class="card-head"><h2>Mes informations</h2></div>
+                <div class="card-head"><h2><span class="card-icon i-sky">📇</span>Mes informations</h2></div>
                 <form wire:submit="updateInfo" style="padding:0 20px 20px;">
                     <div class="form-field">
                         <label>Nom complet</label>
@@ -65,7 +65,7 @@
             </div>
 
             <div class="card">
-                <div class="card-head"><h2>Changer mon mot de passe</h2></div>
+                <div class="card-head"><h2><span class="card-icon i-lavender">🔒</span>Changer mon mot de passe</h2></div>
                 <form wire:submit="updatePassword" style="padding:0 20px 20px;">
                     <div class="form-field" x-data="{ show: false }">
                         <label>Mot de passe actuel</label>

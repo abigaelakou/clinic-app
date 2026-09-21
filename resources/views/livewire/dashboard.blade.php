@@ -4,7 +4,12 @@
             <path d="M10,85 A150,150 0 0,1 175,5" stroke="#C0410C" stroke-width="1.4" stroke-dasharray="1 7" stroke-linecap="round"/>
         </svg>
         <div>
-            <h1>Bonjour, {{ auth()->user()?->name ? explode(' ', auth()->user()->name)[0] : 'invité' }}</h1>
+            @php
+                $hr = now()->hour;
+                $ge = $hr < 12 ? '☀️' : ($hr < 18 ? '🌤️' : '🌙');
+                $gw = $hr < 12 ? 'Bonjour' : ($hr < 18 ? 'Bon après-midi' : 'Bonsoir');
+            @endphp
+            <h1><span class="greet-emoji">{{ $ge }}</span> {{ $gw }}, {{ auth()->user()?->name ? explode(' ', auth()->user()->name)[0] : 'invité' }}</h1>
             <div class="date">{{ now()->translatedFormat('l j F Y') }} · Vue d'ensemble de la clinique</div>
         </div>
         <div style="display:flex;gap:10px;">
@@ -38,7 +43,7 @@
     <div class="grid-2">
         @if($canSeeStock)
         <div class="card">
-            <div class="card-head"><h2>Alertes de stock</h2>@if($canSeeStock)<a href="{{ route('stocks') }}" class="see-all">Voir tout</a>@endif</div>
+            <div class="card-head"><h2><span class="card-icon i-peach">💊</span>Alertes de stock</h2>@if($canSeeStock)<a href="{{ route('stocks') }}" class="see-all">Voir tout</a>@endif</div>
             <div class="card-sub">Produits sous le seuil ou en rupture — domaines que tu gères</div>
             @forelse($stockAlerts as $product)
                 <div class="stock-row">
@@ -59,7 +64,7 @@
 
         @if($canSeeAppointments)
         <div class="card">
-            <div class="card-head"><h2>Rendez-vous du jour</h2>@if($canSeeAppointments)<a href="{{ route('rdv') }}" class="see-all">Agenda</a>@endif</div>
+            <div class="card-head"><h2><span class="card-icon i-sky">📅</span>Rendez-vous du jour</h2>@if($canSeeAppointments)<a href="{{ route('rdv') }}" class="see-all">Agenda</a>@endif</div>
             @forelse($todayAppointments as $appt)
                 <div class="rdv-row">
                     <div class="rdv-time">{{ $appt->scheduled_at->format('H:i') }}</div>
