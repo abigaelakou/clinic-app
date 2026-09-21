@@ -2,10 +2,12 @@
 
 namespace App\Livewire;
 
+use App\Mail\AppointmentStatusUpdate;
 use App\Models\Appointment;
 use App\Models\Doctor;
 use App\Models\DoctorAvailability;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -86,8 +88,30 @@ class Rdv extends Component
         }
 
         $appointment->confirm(Auth::user());
+        $this->notifyPatientByEmail($appointment->fresh(), 'confirmed');
 
         $this->dispatch('toast', message: 'Rendez-vous confirmé.');
+    }
+
+    /**
+     * Notification par e-mail (partielle — seulement si la patiente a un
+     * e-mail renseigné ; un vrai système complet nécessiterait aussi le
+     * SMS, pas encore en place). N'empêche jamais l'action côté staff si
+     * l'envoi échoue.
+     */
+    protected function notifyPatientByEmail(Appointment $appointment, string $kind): void
+    {
+        $email = $appointment->patient?->email;
+
+        if (! $email) {
+            return;
+        }
+
+        try {
+            Mail::to($email)->send(new AppointmentStatusUpdate($appointment, $kind));
+        } catch (\Throwable $e) {
+            // Silencieux : le staff n'a pas besoin d'être bloqué par un souci d'envoi.
+        }
     }
 
     public function markCompleted(int $appointmentId)
@@ -161,6 +185,7 @@ class Rdv extends Component
             'status' => 'cancelled',
             'cancellation_reason' => $this->cancelReason,
         ]);
+        $this->notifyPatientByEmail($appointment->fresh(), 'cancelled');
 
         $this->showCancelModal = false;
         $this->dispatch('toast', message: 'Rendez-vous annulé.');
@@ -210,11 +235,12 @@ class Rdv extends Component
 
         $appointment->update([
             'scheduled_at' => $this->rescheduleDate . ' ' . $this->rescheduleTime,
-            'status' => 'confirmed',
+            'status' => 'rescheduled',
         ]);
+        $this->notifyPatientByEmail($appointment->fresh(), 'rescheduled');
 
         $this->showRescheduleModal = false;
-        $this->dispatch('toast', message: 'Rendez-vous reporté.');
+        $this->dispatch('toast', message: 'Nouveau créneau proposé — en attente de confirmation de la patiente.');
     }
 
     // ---------- Indisponibilité ----------

@@ -30,7 +30,7 @@
     <div class="grid-2" style="align-items:flex-start;">
         <div style="flex:1 1 220px; max-width:240px;">
             <div class="card">
-                <div class="card-head" style="padding:16px 18px 10px;"><h2 style="font-size:14.5px;">Catégories</h2></div>
+                <div class="card-head" style="padding:16px 18px 10px;"><h2 style="font-size:14.5px;"><span class="card-icon i-lavender" style="width:24px;height:24px;font-size:12px;">🗂</span>Catégories</h2></div>
                 <div class="cat-item {{ ! $categoryId ? 'active' : '' }}" wire:click="selectCategory(null)">
                     <span>Toutes</span><span class="cat-count">{{ $categories->sum('products_count') }}</span>
                 </div>
@@ -44,7 +44,7 @@
 
         <div style="flex:3 1 500px;">
             <div class="card">
-                <div class="card-head"><h2>{{ $currentLabel }}</h2></div>
+                <div class="card-head"><h2><span class="card-icon i-peach">💊</span>{{ $currentLabel }}</h2></div>
                 <div class="table-wrap">
                 <table>
                     <thead><tr><th>Produit</th><th>Quantité</th><th>Seuil</th><th>Péremption</th><th>Statut</th><th></th></tr></thead>

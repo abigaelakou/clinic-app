@@ -9,6 +9,7 @@
 
     <div class="card">
         <div class="card-head" style="padding:16px 18px 10px;">
+            <h2 style="font-size:14.5px;"><span class="card-icon i-peach" style="width:24px;height:24px;font-size:12px;">👤</span>Personnel</h2>
             <input type="text" wire:model.live.debounce.200ms="search" placeholder="Rechercher un nom, un e-mail…"
                    style="width:280px;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
         </div>

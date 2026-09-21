@@ -2,10 +2,12 @@
 
 namespace App\Livewire;
 
+use App\Mail\NewAccountCredentials;
 use App\Models\Doctor;
 use App\Models\Specialty;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -134,7 +136,13 @@ class Users extends Component
         }
 
         $this->showNewModal = false;
-        $this->dispatch('toast', message: 'Compte créé pour ' . $user->name . '.');
+
+        try {
+            Mail::to($user->email)->send(new NewAccountCredentials($user, $this->newPassword));
+            $this->dispatch('toast', message: 'Compte créé pour ' . $user->name . ' — identifiants envoyés par e-mail.');
+        } catch (\Throwable $e) {
+            $this->dispatch('toast', message: 'Compte créé pour ' . $user->name . ', mais l\'e-mail n\'a pas pu être envoyé — communique le mot de passe toi-même.');
+        }
     }
 
     // ---------- Modifier compte ----------

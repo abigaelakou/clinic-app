@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Models\Appointment;
+use App\Models\Patient;
 use App\Models\Product;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
@@ -70,6 +71,25 @@ class Dashboard extends Component
                 'desc' => ($appt->patient->first_name ?? 'Une patiente') . ' — ' . $appt->scheduled_at->format('d/m à H:i'),
                 'time' => $appt->created_at->diffForHumans(),
             ]);
+        }
+
+        // ---- Pièces d'identité en attente de vérification (admin/réception) ----
+        $idPending = collect();
+        if (in_array($user->role, ['admin', 'reception'], true)) {
+            $idPending = Patient::whereNotNull('id_document_path')
+                ->where('identity_verified', false)
+                ->limit(4)
+                ->get();
+
+            foreach ($idPending as $patient) {
+                $notifications->push([
+                    'type' => 'warn',
+                    'icon' => '🪪',
+                    'title' => 'Pièce d\'identité à vérifier',
+                    'desc' => $patient->first_name . ' ' . $patient->last_name,
+                    'time' => '',
+                ]);
+            }
         }
 
         return view('livewire.dashboard', [

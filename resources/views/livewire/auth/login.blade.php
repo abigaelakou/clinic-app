@@ -26,4 +26,8 @@
             <span wire:loading>Connexion…</span>
         </button>
     </form>
+
+    <div style="text-align:center;margin-top:20px;font-size:12.5px;color:var(--ink-faint);">
+        Tu es une patiente ? <a href="{{ route('patient.login') }}" style="color:var(--clay);font-weight:600;text-decoration:none;">Accède à ton espace</a>
+    </div>
 </div>

@@ -9,26 +9,32 @@
     <link rel="stylesheet" href="/css/fame.css">
     @livewireStyles
     <style>
+        :root{
+            --peach:#F4A15C; --peach-tint:#FDF0E1; --lavender:#8B6EC7;
+        }
         .guest-wrap{
             min-height:100vh; display:flex; align-items:center; justify-content:center;
             background:
-                radial-gradient(900px 420px at 15% 0%, rgba(192,65,12,0.07), transparent 60%),
-                radial-gradient(700px 380px at 100% 100%, rgba(47,93,138,0.05), transparent 60%),
+                radial-gradient(1000px 480px at 15% -6%, rgba(244,161,92,0.16), transparent 60%),
+                radial-gradient(800px 440px at 100% 100%, rgba(139,110,199,0.10), transparent 60%),
+                radial-gradient(700px 380px at 100% 0%, rgba(192,65,12,0.07), transparent 60%),
                 var(--stone);
             padding:24px;
         }
+        @keyframes guestFadeUp{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:translateY(0); } }
         .guest-card{
             width:100%; max-width:392px; background:var(--stone-2); border:1px solid var(--line);
-            border-radius:var(--radius-l); box-shadow:var(--shadow-lift); padding:36px 32px 30px;
+            border-radius:22px; box-shadow:var(--shadow-lift); padding:38px 32px 30px;
+            animation: guestFadeUp .4s ease both;
         }
         .guest-logo{ display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:24px; }
-        .guest-logo img{ width:56px; height:56px; border-radius:14px; margin-bottom:12px; }
+        .guest-logo img{ width:56px; height:56px; border-radius:14px; margin-bottom:12px; box-shadow:0 8px 20px -6px rgba(192,65,12,0.4); }
         .guest-logo .name{ font-family:'Fraunces',serif; font-size:17px; font-weight:600; }
         .guest-logo .sub{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
         .field{ margin-bottom:16px; }
         .field label{ display:block; font-size:12px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; }
         .field input{
-            width:100%; padding:11px 13px; border-radius:var(--radius-s); border:1px solid var(--line);
+            width:100%; padding:12px 14px; border-radius:12px; border:1.5px solid var(--line);
             background:var(--stone); font-size:13.5px; font-family:inherit; color:var(--ink);
             transition:border-color .15s ease, box-shadow .15s ease;
         }
@@ -36,14 +42,16 @@
         .field-error{ font-size:11.5px; color:var(--crit); margin-top:5px; }
         .remember-row{ display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:12.5px; color:var(--ink-soft); }
         .submit-btn{
-            width:100%; padding:12px; border:none; border-radius:var(--radius-s); background:var(--clay);
+            width:100%; padding:13px; border:none; border-radius:12px;
+            background:linear-gradient(135deg, var(--peach), var(--clay));
             color:#fff; font-weight:700; font-size:13.5px; cursor:pointer; font-family:inherit;
+            box-shadow:0 6px 16px -6px rgba(192,65,12,0.5);
             transition:background .15s ease, box-shadow .2s ease, transform .15s ease;
         }
-        .submit-btn:hover{ background:var(--clay-dark); box-shadow:0 10px 24px -10px rgba(192,65,12,0.6); transform:translateY(-1px); }
+        .submit-btn:hover{ box-shadow:0 10px 24px -10px rgba(192,65,12,0.6); transform:translateY(-1px); }
         .guest-error{
             background:var(--crit-tint); color:var(--crit); font-size:12.5px; padding:10px 13px;
-            border-radius:var(--radius-s); margin-bottom:16px;
+            border-radius:12px; margin-bottom:16px;
         }
         .guest-foot{ text-align:center; font-size:11px; color:var(--ink-faint); margin-top:22px; }
     </style>
@@ -61,25 +69,5 @@
     </div>
 </div>
 @livewireScripts
-<div class="expired-toast" id="pageExpiredToast">
-    <div class="expired-toast-icon">⏳</div>
-    <div>
-        <div class="expired-toast-title">Ta session a expiré</div>
-        <div class="expired-toast-desc">Pour continuer en toute sécurité, recharge la page.</div>
-    </div>
-    <button class="expired-toast-btn" onclick="location.reload()">Recharger</button>
-</div>
-<script>
-    document.addEventListener('livewire:init', () => {
-        Livewire.hook('request', ({ fail }) => {
-            fail(({ status, preventDefault }) => {
-                if (status === 419) {
-                    preventDefault();
-                    document.getElementById('pageExpiredToast')?.classList.add('show');
-                }
-            });
-        });
-    });
-</script>
 </body>
 </html>

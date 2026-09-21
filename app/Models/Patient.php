@@ -2,23 +2,26 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Patient extends Model
+class Patient extends Authenticatable
 {
     use SoftDeletes;
 
     protected $fillable = [
         'user_id', 'first_name', 'last_name', 'date_of_birth', 'sex',
-        'phone', 'email', 'address', 'emergency_contact_name',
+        'phone', 'email', 'password', 'address', 'emergency_contact_name',
         'emergency_contact_phone', 'declared_history', 'created_via',
-        'created_by', 'identity_verified',
+        'created_by', 'identity_verified', 'id_document_path',
     ];
+
+    protected $hidden = ['password', 'remember_token'];
 
     protected $casts = [
         'date_of_birth' => 'date',
         'identity_verified' => 'boolean',
+        'password' => 'hashed',
     ];
 
     public function user()
