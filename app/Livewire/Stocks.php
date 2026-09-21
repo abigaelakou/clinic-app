@@ -7,9 +7,12 @@ use App\Models\Product;
 use App\Models\StockCategory;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class Stocks extends Component
 {
+    use WithPagination;
+
     public string $domain = '';
     public ?int $categoryId = null;
 
@@ -67,11 +70,13 @@ class Stocks extends Component
 
         $this->domain = $domain;
         $this->categoryId = null;
+        $this->resetPage();
     }
 
     public function selectCategory(?int $categoryId)
     {
         $this->categoryId = $categoryId;
+        $this->resetPage();
     }
 
     protected function domainLabel(string $domain): string
@@ -109,6 +114,80 @@ class Stocks extends Component
     }
 
     // ---------- Mouvement ----------
+
+    // ---- Modale édition produit ----
+    public bool $showEditProductModal = false;
+    public ?int $editProductId = null;
+    public string $editProductName = '';
+    public string $editProductUnit = '';
+    public $editProductThreshold = 0;
+
+    public function openEditProduct(int $productId)
+    {
+        $product = Product::with('category')->findOrFail($productId);
+
+        if (! Auth::user()->canWriteStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        $this->editProductId = $product->id;
+        $this->editProductName = $product->name;
+        $this->editProductUnit = $product->unit;
+        $this->editProductThreshold = $product->alert_threshold;
+        $this->resetErrorBag();
+        $this->showEditProductModal = true;
+    }
+
+    public function closeEditProduct()
+    {
+        $this->showEditProductModal = false;
+    }
+
+    public function saveEditProduct()
+    {
+        $this->validate([
+            'editProductName' => 'required|min:2',
+            'editProductUnit' => 'required',
+            'editProductThreshold' => 'required|numeric|min:0',
+        ], [], ['editProductName' => 'nom', 'editProductUnit' => 'unité', 'editProductThreshold' => "seuil d'alerte"]);
+
+        $product = Product::with('category')->findOrFail($this->editProductId);
+
+        if (! Auth::user()->canWriteStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        $product->update([
+            'name' => $this->editProductName,
+            'unit' => $this->editProductUnit,
+            'alert_threshold' => $this->editProductThreshold,
+        ]);
+
+        $this->showEditProductModal = false;
+        $this->dispatch('toast', message: 'Produit mis à jour.');
+    }
+
+    /**
+     * Désactive le produit plutôt que de le supprimer si des mouvements
+     * existent déjà (on ne perd jamais l'historique) ; suppression réelle
+     * seulement si aucun mouvement n'a jamais été enregistré.
+     */
+    public function deleteProduct(int $productId)
+    {
+        $product = Product::with('category')->findOrFail($productId);
+
+        if (! Auth::user()->canWriteStockDomain($product->category->domain)) {
+            abort(403);
+        }
+
+        if ($product->movements()->exists()) {
+            $product->update(['is_active' => false]);
+            $this->dispatch('toast', message: $product->name . ' désactivé (historique conservé).');
+        } else {
+            $product->delete();
+            $this->dispatch('toast', message: $product->name . ' supprimé.');
+        }
+    }
 
     public function openMovement(int $productId)
     {
@@ -302,15 +381,17 @@ class Stocks extends Component
             ->get();
 
         $productsQuery = Product::whereHas('category', fn ($q) => $q->where('domain', $this->domain))
+            ->where('is_active', true)
             ->with(['category', 'batches' => fn ($q) => $q->where('quantity', '>', 0)->whereNotNull('expiry_date')->orderBy('expiry_date')]);
 
         if ($this->categoryId) {
             $productsQuery->where('stock_category_id', $this->categoryId);
         }
 
-        $products = $productsQuery->orderBy('name')->get();
+        $products = $productsQuery->orderBy('name')->simplePaginate(12);
 
         $statsQuery = fn () => Product::whereHas('category', fn ($q) => $q->where('domain', $this->domain))
+            ->where('is_active', true)
             ->when($this->categoryId, fn ($q) => $q->where('stock_category_id', $this->categoryId));
 
         $movementHistory = collect();

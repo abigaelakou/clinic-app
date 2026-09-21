@@ -20,7 +20,7 @@
 
     <div class="day-strip">
         @foreach($weekDays as $day)
-            <div class="day-chip {{ $day->isSameDay($currentDay) ? 'today' : '' }}" wire:click="selectDay('{{ $day->toDateString() }}')">
+            <div class="day-chip {{ $day->isSameDay($currentDay) ? 'today' : '' }} {{ in_array($day->toDateString(), $unavailableDatesInWeek) ? 'unavailable' : '' }}" wire:click="selectDay('{{ $day->toDateString() }}')">
                 {{ $day->translatedFormat('D') }}<br><b>{{ $day->format('d') }}</b>
             </div>
         @endforeach
@@ -29,11 +29,14 @@
     @if($viewMode === 'week')
         <div class="week-grid">
             @foreach($weekDays as $day)
-                <div class="week-col {{ $day->isToday() ? 'today-col' : '' }}">
+                <div class="week-col {{ $day->isToday() ? 'today-col' : '' }} {{ in_array($day->toDateString(), $unavailableDatesInWeek) ? 'unavailable-col' : '' }}">
                     <div class="week-col-head">
                         <div class="wd">{{ $day->translatedFormat('D') }}</div>
                         <div class="wn">{{ $day->format('d') }}</div>
                     </div>
+                    @if(in_array($day->toDateString(), $unavailableDatesInWeek))
+                        <div class="week-col-unavail-tag">Indisponible</div>
+                    @endif
                     <div class="week-col-body">
                         @forelse($weekAppointments[$day->toDateString()] ?? [] as $appt)
                             <div class="week-appt {{ $appt->status === 'pending' ? 'pending' : '' }}" wire:click="selectDay('{{ $day->toDateString() }}'); setViewMode('day')">
@@ -49,14 +52,31 @@
         </div>
     @endif
 
+    @if($myUnavailabilityToday)
+        <div class="unavailable-banner">
+            ⚠ Tu as indiqué être indisponible ce jour-là ({{ $myUnavailabilityToday->start_time }}–{{ $myUnavailabilityToday->end_time }}) — motif : {{ $myUnavailabilityToday->reason }}
+        </div>
+    @endif
+
+    @if($othersUnavailableToday->isNotEmpty())
+        <div class="unavailable-banner" style="flex-direction:column;align-items:flex-start;gap:4px;">
+            <div>⚠ {{ $othersUnavailableToday->count() }} médecin(s) indisponible(s) aujourd'hui :</div>
+            @foreach($othersUnavailableToday as $ua)
+                <div style="font-weight:400;font-size:12px;">
+                    {{ $ua->doctor->user->name ?? '—' }} · {{ $ua->start_time }}–{{ $ua->end_time }} · {{ $ua->reason }}
+                </div>
+            @endforeach
+        </div>
+    @endif
+
     <div class="grid-2" style="{{ $viewMode === 'week' ? 'display:none;' : '' }}">
         <div class="card">
-            <div class="card-head"><h2>{{ $currentDay->isToday() ? "Aujourd'hui" : $currentDay->translatedFormat('l j F') }}</h2><span class="see-all">{{ $today->count() }} rendez-vous</span></div>
+            <div class="card-head"><h2>{{ $currentDay->isToday() ? "Aujourd'hui" : $currentDay->translatedFormat('l j F') }}</h2><span class="see-all">{{ $todayCount }} rendez-vous</span></div>
             <div class="agenda">
                 @forelse($today as $appt)
                     <div class="agenda-row">
                         <div class="agenda-time">{{ $appt->scheduled_at->format('H:i') }}</div>
-                        <div class="agenda-card {{ $appt->status === 'pending' ? 'pending' : 'confirmed' }}" style="{{ $appt->status === 'cancelled' ? 'opacity:.5;' : '' }}">
+                        <div class="agenda-card {{ $appt->status === 'pending' ? 'pending' : ($appt->status === 'completed' ? 'completed' : 'confirmed') }}" style="{{ $appt->status === 'cancelled' ? 'opacity:.5;' : '' }}">
                             <div class="agenda-doc">{{ $appt->doctor->user->name ?? '' }}</div>
                             <div class="agenda-patient">{{ $appt->patient->first_name }} — {{ $appt->reason }}</div>
                             @if($appt->type === 'teleconsultation')
@@ -65,11 +85,19 @@
                                 <div class="agenda-tag">En attente de confirmation</div>
                             @elseif($appt->status === 'cancelled')
                                 <div class="agenda-tag" style="color:var(--crit);">Annulé</div>
+                            @elseif($appt->status === 'completed')
+                                <div class="agenda-tag" style="color:var(--ink-faint);">✓ Terminé</div>
                             @endif
-                            @if($appt->status !== 'cancelled' && $canConfirm)
-                                <div style="display:flex;gap:6px;margin-top:8px;">
+                            @if(! in_array($appt->status, ['cancelled', 'completed']) && $canConfirm)
+                                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                                    <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--ok);" wire:click="markCompleted({{ $appt->id }})">✓ Terminé</button>
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;" wire:click="openReschedule({{ $appt->id }})">Reporter</button>
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);" wire:click="openCancel({{ $appt->id }})">Annuler</button>
+                                    @if($canDelete)
+                                        <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);"
+                                                wire:click="deleteAppointment({{ $appt->id }})"
+                                                onclick="return confirm('Supprimer définitivement ce rendez-vous ?')">🗑</button>
+                                    @endif
                                 </div>
                             @endif
                         </div>
@@ -78,6 +106,13 @@
                     <div class="agenda-row">Aucun rendez-vous ce jour-là.</div>
                 @endforelse
             </div>
+            @if($today->hasPages())
+                <div class="pager">
+                    <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $today->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('dayPage')">← Préc.</button>
+                    <span class="pg-info">Page {{ $today->currentPage() }}</span>
+                    <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $today->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('dayPage')">Suiv. →</button>
+                </div>
+            @endif
         </div>
 
         <div>
@@ -100,6 +135,13 @@
                 @empty
                     <div class="req-item"><div class="req-info">Aucune demande en attente.</div></div>
                 @endforelse
+                @if($pending->hasPages())
+                    <div class="pager">
+                        <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ $pending->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage('pendingPage')">← Préc.</button>
+                        <span class="pg-info">Page {{ $pending->currentPage() }}</span>
+                        <button class="btn ghost" style="padding:5px 10px;font-size:11px;{{ ! $pending->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage('pendingPage')">Suiv. →</button>
+                    </div>
+                @endif
             </div>
 
             <div class="card domain-card">
