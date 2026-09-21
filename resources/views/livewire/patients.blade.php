@@ -4,10 +4,15 @@
             <h1>Dossiers patients</h1>
             <div class="date">Accès réservé au personnel soignant · Journalisation active</div>
         </div>
-        @if($canCreatePatient)
-            <button class="btn ghost" wire:click="openImport">⬆ Importer (Excel)</button>
-            <button class="btn" wire:click="openNewPatient">+ Nouvelle patiente</button>
-        @endif
+        <div style="display:flex;gap:10px;">
+            @if($canManageTypes)
+                <button class="btn ghost" wire:click="openNewType">🏷 + Type de consultation</button>
+            @endif
+            @if($canCreatePatient)
+                <button class="btn ghost" wire:click="openImport">⬆ Importer (Excel)</button>
+                <button class="btn" wire:click="openNewPatient">+ Nouvelle patiente</button>
+            @endif
+        </div>
     </div>
 
     <div class="grid-2" style="align-items:flex-start;">
@@ -43,6 +48,13 @@
                             <div class="patient-name">{{ $selectedPatient->first_name }} {{ $selectedPatient->last_name }}</div>
                             <div class="patient-sub">{{ $selectedPatient->age() ? $selectedPatient->age().' ans' : '' }} · {{ $selectedPatient->phone }}</div>
                         </div>
+                        @if($canEditPatient)
+                            <button class="btn ghost" style="padding:7px 12px;font-size:11.5px;" wire:click="openEditPatient">✏️ Modifier</button>
+                        @endif
+                        @if($canDeletePatient)
+                            <button class="btn ghost" style="padding:7px 12px;font-size:11.5px;color:var(--crit);"
+                                    wire:click="askConfirm('deletePatient', 'Retirer {{ $selectedPatient->first_name }} des dossiers patients ? Son historique (consultations, documents…) restera conservé, mais elle n\'apparaîtra plus dans la liste.')">🗑 Retirer</button>
+                        @endif
                         <div class="audit-note">👁 Consulté par vous — {{ now()->format('d/m H:i') }}</div>
                     </div>
 
@@ -81,9 +93,15 @@
                             <div class="consult-row">
                                 <div class="consult-date">{{ $c->consulted_at->format('d M Y') }}</div>
                                 <div class="consult-info">
-                                    <b>{{ $c->motif }}</b>
+                                    <b>
+                                        @if($c->type)
+                                            <span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 5px;border-radius:5px;font-size:10.5px;font-weight:800;color:#fff;background:{{ $c->type->color }};margin-right:6px;vertical-align:middle;">{{ $c->type->code }}</span>
+                                        @endif
+                                        {{ $c->motif }}
+                                    </b>
                                     <div class="prod-cat">
                                         {{ $c->doctor->user->name ?? '' }}
+                                        @if($c->type) · {{ $c->type->label }} @endif
                                         @if($c->diagnostic) · {{ $c->diagnostic }} @endif
                                     </div>
                                 </div>
@@ -91,8 +109,7 @@
                                     <div style="display:flex;gap:6px;margin-left:auto;flex:none;">
                                         <button class="btn ghost" style="padding:5px 9px;font-size:11px;" wire:click="openEditConsult({{ $c->id }})">Modifier</button>
                                         <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--crit);"
-                                                wire:click="deleteConsult({{ $c->id }})"
-                                                onclick="return confirm('Supprimer cette consultation ? Cette action est irréversible.')">Supprimer</button>
+                                                wire:click="askConfirm('deleteConsult', 'Supprimer cette consultation ? Cette action est irréversible.', {{ $c->id }})">Supprimer</button>
                                     </div>
                                 @endif
                             </div>
@@ -229,6 +246,18 @@
             </div>
             <form wire:submit="saveConsult">
                 <div class="form-field">
+                    <label>Type de consultation (optionnel)</label>
+                    <div style="display:flex;gap:8px;">
+                        <select wire:model="consultTypeId" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
+                            <option value="">— Aucun —</option>
+                            @foreach($consultationTypes as $t)
+                                <option value="{{ $t->id }}">{{ $t->code }} — {{ $t->label }}</option>
+                            @endforeach
+                        </select>
+                        <button type="button" class="btn ghost" style="flex:none;padding:10px 12px;font-size:12px;" wire:click="openNewType">+ Type</button>
+                    </div>
+                </div>
+                <div class="form-field">
                     <label>Motif</label>
                     <input type="text" wire:model="consultMotif" placeholder="Ex : suivi de grossesse, consultation gynéco...">
                     @error('consultMotif') <div class="field-error">{{ $message }}</div> @enderror
@@ -350,18 +379,18 @@
                 <div class="form-row">
                     <div class="form-field">
                         <label>Prénom</label>
-                        <input type="text" wire:model="newFirstName">
+                        <input type="text" wire:model="newFirstName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
                         @error('newFirstName') <div class="field-error">{{ $message }}</div> @enderror
                     </div>
                     <div class="form-field">
                         <label>Nom (optionnel)</label>
-                        <input type="text" wire:model="newLastName">
+                        <input type="text" wire:model="newLastName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="form-field">
                         <label>Téléphone</label>
-                        <input type="text" wire:model="newPhone" placeholder="07 XX XX XX XX">
+                        <input type="text" wire:model="newPhone" placeholder="07 XX XX XX XX" x-on:input="$el.value = $el.value.replace(/[^0-9+\-\s]/g, '')">
                         @error('newPhone') <div class="field-error">{{ $message }}</div> @enderror
                     </div>
                     <div class="form-field">
@@ -390,11 +419,11 @@
                 <div class="form-row">
                     <div class="form-field">
                         <label>Contact d'urgence — nom</label>
-                        <input type="text" wire:model="newEmergencyName">
+                        <input type="text" wire:model="newEmergencyName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
                     </div>
                     <div class="form-field">
                         <label>Contact d'urgence — tél.</label>
-                        <input type="text" wire:model="newEmergencyPhone">
+                        <input type="text" wire:model="newEmergencyPhone" x-on:input="$el.value = $el.value.replace(/[^0-9+\-\s]/g, '')">
                     </div>
                 </div>
                 <div class="form-field">
@@ -450,6 +479,120 @@
                         <span wire:loading.remove wire:target="saveImport">Importer</span>
                         <span wire:loading wire:target="saveImport">Import en cours…</span>
                     </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale Modifier patiente ===== --}}
+    <div class="modal-backdrop {{ $showEditPatientModal ? 'active' : '' }}" wire:click.self="closeEditPatient">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 class="serif">Modifier la fiche</h3>
+                <button class="modal-close" wire:click="closeEditPatient">✕</button>
+            </div>
+            <form wire:submit="saveEditPatient">
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>Prénom</label>
+                        <input type="text" wire:model="editFirstName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
+                        @error('editFirstName') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="form-field">
+                        <label>Nom (optionnel)</label>
+                        <input type="text" wire:model="editLastName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>Téléphone</label>
+                        <input type="text" wire:model="editPhone" x-on:input="$el.value = $el.value.replace(/[^0-9+\-\s]/g, '')">
+                        @error('editPhone') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="form-field">
+                        <label>Date de naissance</label>
+                        <input type="date" wire:model="editDob">
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label>Sexe</label>
+                    <div class="type-toggle">
+                        <input type="radio" id="edit-sex-f" value="F" wire:model="editSex">
+                        <label for="edit-sex-f">Féminin</label>
+                        <input type="radio" id="edit-sex-m" value="M" wire:model="editSex">
+                        <label for="edit-sex-m">Masculin</label>
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label>E-mail (optionnel)</label>
+                    <input type="email" wire:model="editEmail">
+                    @error('editEmail') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-field">
+                    <label>Adresse (optionnel)</label>
+                    <input type="text" wire:model="editAddress">
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>Contact d'urgence — nom</label>
+                        <input type="text" wire:model="editEmergencyName" x-on:input="$el.value = $el.value.replace(/[^\p{L}\s\-']/gu, '')">
+                    </div>
+                    <div class="form-field">
+                        <label>Contact d'urgence — tél.</label>
+                        <input type="text" wire:model="editEmergencyPhone" x-on:input="$el.value = $el.value.replace(/[^0-9+\-\s]/g, '')">
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label>Antécédents déclarés (optionnel)</label>
+                    <input type="text" wire:model="editHistory">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn ghost" wire:click="closeEditPatient">Annuler</button>
+                    <button type="submit" class="btn">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale de confirmation générique ===== --}}
+    <div class="modal-backdrop {{ $showConfirmModal ? 'active' : '' }}" wire:click.self="closeConfirm">
+        <div class="modal-card" style="max-width:380px;">
+            <div class="confirm-icon">⚠</div>
+            <div class="confirm-text">{{ $confirmMessage }}</div>
+            <div class="form-actions">
+                <button type="button" class="btn ghost" wire:click="closeConfirm">Annuler</button>
+                <button type="button" class="btn" style="background:var(--crit);" wire:click="runConfirmedAction">Confirmer</button>
+            </div>
+        </div>
+    </div>
+
+    {{-- ===== Modale Nouveau type de consultation ===== --}}
+    <div class="modal-backdrop {{ $showNewTypeModal ? 'active' : '' }}" wire:click.self="closeNewType">
+        <div class="modal-card" style="max-width:380px;">
+            <div class="modal-head">
+                <h3 class="serif">Nouveau type de consultation</h3>
+                <button class="modal-close" wire:click="closeNewType">✕</button>
+            </div>
+            <form wire:submit="saveNewType">
+                <div class="form-row">
+                    <div class="form-field" style="flex:0 0 100px;">
+                        <label>Code</label>
+                        <input type="text" wire:model="newTypeCode" placeholder="Ex : G" maxlength="10" style="text-transform:uppercase;">
+                        @error('newTypeCode') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="form-field">
+                        <label>Libellé</label>
+                        <input type="text" wire:model="newTypeLabel" placeholder="Ex : Grossesse">
+                        @error('newTypeLabel') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                </div>
+                <div class="form-field">
+                    <label>Couleur du badge</label>
+                    <input type="color" wire:model="newTypeColor" style="width:60px;height:38px;padding:2px;border-radius:8px;border:1px solid var(--line);cursor:pointer;">
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn ghost" wire:click="closeNewType">Annuler</button>
+                    <button type="submit" class="btn">Créer</button>
                 </div>
             </form>
         </div>

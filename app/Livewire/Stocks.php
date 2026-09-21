@@ -117,6 +117,29 @@ class Stocks extends Component
 
     // ---- Modale édition produit ----
     public bool $showEditProductModal = false;
+
+    // ---- Modale de confirmation générique ----
+    public bool $showConfirmModal = false;
+    public string $confirmMessage = '';
+    public ?int $confirmTargetId = null;
+
+    public function askConfirmDelete(int $productId, string $productName)
+    {
+        $this->confirmTargetId = $productId;
+        $this->confirmMessage = 'Retirer "' . $productName . '" du stock ?';
+        $this->showConfirmModal = true;
+    }
+
+    public function closeConfirm()
+    {
+        $this->showConfirmModal = false;
+    }
+
+    public function runConfirmedAction()
+    {
+        $this->reallyDeleteProduct($this->confirmTargetId);
+        $this->showConfirmModal = false;
+    }
     public ?int $editProductId = null;
     public string $editProductName = '';
     public string $editProductUnit = '';
@@ -172,7 +195,7 @@ class Stocks extends Component
      * existent déjà (on ne perd jamais l'historique) ; suppression réelle
      * seulement si aucun mouvement n'a jamais été enregistré.
      */
-    public function deleteProduct(int $productId)
+    protected function reallyDeleteProduct(?int $productId)
     {
         $product = Product::with('category')->findOrFail($productId);
 
