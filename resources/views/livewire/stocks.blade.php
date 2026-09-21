@@ -77,6 +77,10 @@
                                     <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;" wire:click="openHistory({{ $product->id }})">Historique</button>
                                     @if($canWrite)
                                         <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;" wire:click="openMovement({{ $product->id }})">Mouvement</button>
+                                        <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;" wire:click="openEditProduct({{ $product->id }})">Modifier</button>
+                                        <button class="btn ghost" style="padding:6px 10px;font-size:11.5px;color:var(--crit);"
+                                                wire:click="deleteProduct({{ $product->id }})"
+                                                onclick="return confirm('Retirer {{ $product->name }} du stock ?')">Suppr.</button>
                                     @endif
                                 </td>
                             </tr>
@@ -85,6 +89,13 @@
                         @endforelse
                     </tbody>
                 </table>
+                @if($products->hasPages())
+                    <div class="pager">
+                        <button class="btn ghost" style="padding:6px 12px;font-size:11.5px;{{ $products->onFirstPage() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="previousPage">← Précédent</button>
+                        <span class="pg-info">Page {{ $products->currentPage() }}</span>
+                        <button class="btn ghost" style="padding:6px 12px;font-size:11.5px;{{ ! $products->hasMorePages() ? 'opacity:0.4;pointer-events:none;' : '' }}" wire:click="nextPage">Suivant →</button>
+                    </div>
+                @endif
                 </div>
             </div>
         </div>
@@ -258,6 +269,42 @@
                 <div class="form-actions">
                     <button type="button" class="btn ghost" wire:click="closeNewProduct">Annuler</button>
                     <button type="submit" class="btn">Créer le produit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale Modifier produit ===== --}}
+    <div class="modal-backdrop {{ $showEditProductModal ? 'active' : '' }}" wire:click.self="closeEditProduct">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 class="serif">Modifier — {{ $editProductName }}</h3>
+                <button class="modal-close" wire:click="closeEditProduct">✕</button>
+            </div>
+            <form wire:submit="saveEditProduct">
+                <div class="form-field">
+                    <label>Nom du produit</label>
+                    <input type="text" wire:model="editProductName">
+                    @error('editProductName') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-row">
+                    <div class="form-field">
+                        <label>Unité</label>
+                        <input type="text" wire:model="editProductUnit">
+                        @error('editProductUnit') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                    <div class="form-field">
+                        <label>Seuil d'alerte</label>
+                        <input type="number" step="1" min="0" wire:model="editProductThreshold">
+                        @error('editProductThreshold') <div class="field-error">{{ $message }}</div> @enderror
+                    </div>
+                </div>
+                <div style="font-size:11.5px;color:var(--ink-faint);margin-bottom:6px;">
+                    Pour changer la quantité en stock, utilise plutôt "Mouvement" (entrée/sortie) — ça garde une trace, contrairement à une modification directe.
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn ghost" wire:click="closeEditProduct">Annuler</button>
+                    <button type="submit" class="btn">Enregistrer</button>
                 </div>
             </form>
         </div>

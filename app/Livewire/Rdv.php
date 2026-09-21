@@ -8,9 +8,12 @@ use App\Models\DoctorAvailability;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class Rdv extends Component
 {
+    use WithPagination;
+
     public string $selectedDate = '';
     public string $viewMode = 'day'; // 'day' ou 'week'
 
@@ -43,6 +46,7 @@ class Rdv extends Component
     public function selectDay(string $date)
     {
         $this->selectedDate = $date;
+        $this->resetPage('dayPage');
     }
 
     public function setViewMode(string $mode)
@@ -61,6 +65,37 @@ class Rdv extends Component
         $appointment->confirm(Auth::user());
 
         $this->dispatch('toast', message: 'Rendez-vous confirmé.');
+    }
+
+    public function markCompleted(int $appointmentId)
+    {
+        $appointment = Appointment::findOrFail($appointmentId);
+
+        if (! Auth::user()->can('update', $appointment)) {
+            abort(403);
+        }
+
+        $appointment->statusLogs()->create([
+            'from_status' => $appointment->status,
+            'to_status' => 'completed',
+            'changed_by' => Auth::id(),
+        ]);
+
+        $appointment->update(['status' => 'completed']);
+
+        $this->dispatch('toast', message: 'Rendez-vous marqué comme terminé.');
+    }
+
+    /** Suppression définitive — réservée à l'admin, contrairement à "Annuler" qui garde une trace. */
+    public function deleteAppointment(int $id)
+    {
+        if (! Auth::user()->isAdmin()) {
+            abort(403);
+        }
+
+        Appointment::findOrFail($id)->delete();
+
+        $this->dispatch('toast', message: 'Rendez-vous supprimé définitivement.');
     }
 
     public function openCancel(int $id)
@@ -271,12 +306,43 @@ class Rdv extends Component
             $pendingQuery->whereRaw('1 = 0');
         }
 
-        $dayAppointments = $dayQuery->get();
-        $pending = $pendingQuery->limit(5)->get();
-        $byDoctor = $dayAppointments->groupBy(fn ($a) => $a->doctor->user->name ?? 'Médecin');
+        $dayAppointmentsAll = (clone $dayQuery)->get(); // pour la répartition "par médecin", non paginée
+        $dayAppointments = (clone $dayQuery)->simplePaginate(10, ['*'], 'dayPage'); // pour l'affichage de l'agenda
+        $pending = $pendingQuery->simplePaginate(5, ['*'], 'pendingPage');
+        $byDoctor = $dayAppointmentsAll->groupBy(fn ($a) => $a->doctor->user->name ?? 'Médecin');
 
         $weekStart = $selected->copy()->startOfWeek();
         $weekDays = collect(range(0, 6))->map(fn ($i) => $weekStart->copy()->addDays($i));
+
+        // Indisponibilités : un médecin voit les siennes (bandeau + repère
+        // sur ses propres jours) ; admin/réception voient celles de TOUS
+        // les médecins (utile pour la prise de RDV et la coordination).
+        $myUnavailabilityToday = null;
+        $unavailableDatesInWeek = [];
+        $othersUnavailableToday = collect();
+
+        if ($user->role === 'medecin' && $user->doctor) {
+            $doctorId = $user->doctor->id;
+
+            $myUnavailabilityToday = DoctorAvailability::where('doctor_id', $doctorId)
+                ->where('specific_date', $selected->toDateString())
+                ->first();
+
+            $unavailableDatesInWeek = DoctorAvailability::where('doctor_id', $doctorId)
+                ->whereBetween('specific_date', [$weekStart->toDateString(), $weekStart->copy()->endOfWeek()->toDateString()])
+                ->pluck('specific_date')
+                ->map(fn ($d) => \Carbon\Carbon::parse($d)->toDateString())
+                ->unique()->values()->toArray();
+        } elseif (in_array($user->role, ['admin', 'reception'], true)) {
+            $othersUnavailableToday = DoctorAvailability::where('specific_date', $selected->toDateString())
+                ->with('doctor.user')
+                ->get();
+
+            $unavailableDatesInWeek = DoctorAvailability::whereBetween('specific_date', [$weekStart->toDateString(), $weekStart->copy()->endOfWeek()->toDateString()])
+                ->pluck('specific_date')
+                ->map(fn ($d) => \Carbon\Carbon::parse($d)->toDateString())
+                ->unique()->values()->toArray();
+        }
 
         // Pour la vue semaine : tous les RDV de la semaine, groupés par jour.
         $weekAppointments = [];
@@ -307,11 +373,16 @@ class Rdv extends Component
             'weekAppointments' => $weekAppointments,
             'currentDay' => $selected,
             'today' => $dayAppointments,
+            'todayCount' => $dayAppointmentsAll->count(),
             'pending' => $pending,
             'byDoctor' => $byDoctor,
+            'myUnavailabilityToday' => $myUnavailabilityToday,
+            'othersUnavailableToday' => $othersUnavailableToday,
+            'unavailableDatesInWeek' => $unavailableDatesInWeek,
             'canConfirm' => in_array($user->role, ['admin', 'reception', 'medecin'], true),
             'canCreate' => $user->can('create', Appointment::class),
             'canSignalUnavailable' => in_array($user->role, ['medecin', 'admin'], true) && $user->doctor,
+            'canDelete' => $user->isAdmin(),
         ])->layout('layouts.app', ['notifications' => collect()]);
     }
 }
