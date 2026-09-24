@@ -65,6 +65,14 @@ class Product extends Model
             ->first();
     }
 
+    /** Quantité suggérée pour ramener le stock à deux fois le seuil d'alerte. */
+    public function suggestedReorderQty(): float
+    {
+        $target = $this->alert_threshold * 2;
+        $suggestion = $target - $this->quantity_on_hand;
+        return $suggestion > 0 ? $suggestion : $this->alert_threshold;
+    }
+
     public function recordMovement(string $type, float $quantity, User $user, array $extra = []): StockMovement
     {
         $batch = null;
@@ -88,6 +96,7 @@ class Product extends Model
             'user_id' => $user->id,
             'product_batch_id' => $batch?->id,
             'patient_id' => $extra['patient_id'] ?? null,
+            'prescribing_doctor_id' => $extra['prescribing_doctor_id'] ?? null,
             'service' => $extra['service'] ?? null,
             'reason' => $extra['reason'] ?? null,
         ]);

@@ -2,6 +2,7 @@
 
 namespace App\Livewire;
 
+use App\Models\Doctor;
 use App\Models\Patient;
 use App\Models\Product;
 use App\Models\StockCategory;
@@ -28,6 +29,10 @@ class Stocks extends Component
     public ?int $movementPatientId = null;
     public string $selectedPatientName = '';
     public string $patientSearch = '';
+    public string $movementService = '';
+    public ?int $movementPrescribingDoctorId = null;
+    public string $selectedPrescribingDoctorName = '';
+    public string $prescribingDoctorSearch = '';
 
     // ---- Modale historique ----
     public bool $showHistoryModal = false;
@@ -45,11 +50,24 @@ class Stocks extends Component
     public string $newProductLotNumber = '';
     public string $newProductExpiryDate = '';
 
+    // ---- Modale réapprovisionnement ----
+    public bool $showReorderModal = false;
+
     /**
      * Domaines où la dispensation nominative (lier une sortie à une
      * patiente) a du sens. Pas la cuisine ou le non consommable générique.
      */
     protected const PATIENT_LINK_DOMAINS = ['pharmacie', 'consommable'];
+
+    /** Domaines où affecter une sortie à un service (bloc, consultation...) a du sens. */
+    protected const SERVICE_DOMAINS = ['consommable', 'non_consommable'];
+
+    public const SERVICES = [
+        'bloc' => 'Bloc',
+        'consultation' => 'Consultation',
+        'administration' => 'Administration',
+        'sanitaires' => 'Sanitaires',
+    ];
 
     public function mount()
     {
@@ -113,8 +131,6 @@ class Stocks extends Component
         };
     }
 
-    // ---------- Mouvement ----------
-
     // ---- Modale édition produit ----
     public bool $showEditProductModal = false;
 
@@ -140,6 +156,7 @@ class Stocks extends Component
         $this->reallyDeleteProduct($this->confirmTargetId);
         $this->showConfirmModal = false;
     }
+
     public ?int $editProductId = null;
     public string $editProductName = '';
     public string $editProductUnit = '';
@@ -230,6 +247,10 @@ class Stocks extends Component
         $this->movementPatientId = null;
         $this->selectedPatientName = '';
         $this->patientSearch = '';
+        $this->movementService = '';
+        $this->movementPrescribingDoctorId = null;
+        $this->selectedPrescribingDoctorName = '';
+        $this->prescribingDoctorSearch = '';
         $this->resetErrorBag();
         $this->showMovementModal = true;
     }
@@ -253,6 +274,20 @@ class Stocks extends Component
         $this->selectedPatientName = '';
     }
 
+    public function selectPrescribingDoctor(int $doctorId)
+    {
+        $doctor = Doctor::with('user')->findOrFail($doctorId);
+        $this->movementPrescribingDoctorId = $doctor->id;
+        $this->selectedPrescribingDoctorName = $doctor->user->name ?? '';
+        $this->prescribingDoctorSearch = '';
+    }
+
+    public function clearPrescribingDoctor()
+    {
+        $this->movementPrescribingDoctorId = null;
+        $this->selectedPrescribingDoctorName = '';
+    }
+
     public function saveMovement()
     {
         $this->validate([
@@ -274,6 +309,8 @@ class Stocks extends Component
         }
 
         $canLinkPatient = in_array($product->category->domain, self::PATIENT_LINK_DOMAINS, true);
+        $canLinkService = in_array($product->category->domain, self::SERVICE_DOMAINS, true);
+        $canLinkPrescriber = $product->category->domain === 'pharmacie';
 
         $product->recordMovement(
             $this->movementType,
@@ -284,6 +321,8 @@ class Stocks extends Component
                 'lot_number' => $this->movementLotNumber ?: null,
                 'expiry_date' => $this->movementExpiryDate ?: null,
                 'patient_id' => ($this->movementType === 'exit' && $canLinkPatient) ? $this->movementPatientId : null,
+                'service' => ($this->movementType === 'exit' && $canLinkService) ? ($this->movementService ?: null) : null,
+                'prescribing_doctor_id' => ($this->movementType === 'exit' && $canLinkPrescriber) ? $this->movementPrescribingDoctorId : null,
             ]
         );
 
@@ -393,6 +432,18 @@ class Stocks extends Component
         $this->dispatch('toast', message: $product->name . ' ajouté au stock.');
     }
 
+    // ---------- Réapprovisionnement ----------
+
+    public function openReorder()
+    {
+        $this->showReorderModal = true;
+    }
+
+    public function closeReorder()
+    {
+        $this->showReorderModal = false;
+    }
+
     public function render()
     {
         $user = Auth::user();
@@ -420,7 +471,7 @@ class Stocks extends Component
         $movementHistory = collect();
         if ($this->historyProductId) {
             $movementHistory = \App\Models\StockMovement::where('product_id', $this->historyProductId)
-                ->with(['user', 'patient'])
+                ->with(['user', 'patient', 'prescribingDoctor.user'])
                 ->latest()
                 ->limit(20)
                 ->get();
@@ -429,6 +480,19 @@ class Stocks extends Component
         $filteredPatients = $this->patientSearch !== ''
             ? Patient::where('first_name', 'like', "%{$this->patientSearch}%")->orWhere('last_name', 'like', "%{$this->patientSearch}%")->limit(8)->get()
             : Patient::orderBy('first_name')->limit(8)->get();
+
+        $filteredPrescribingDoctors = Doctor::with('user')
+            ->when($this->prescribingDoctorSearch !== '', fn ($q) => $q->whereHas('user', fn ($u) => $u->where('name', 'like', "%{$this->prescribingDoctorSearch}%")))
+            ->limit(8)
+            ->get();
+
+        // Produits à réapprovisionner sur le domaine affiché.
+        $reorderList = Product::whereHas('category', fn ($q) => $q->where('domain', $this->domain))
+            ->where('is_active', true)
+            ->belowThreshold()
+            ->with('category')
+            ->orderBy('quantity_on_hand')
+            ->get();
 
         return view('livewire.stocks', [
             'domainTabs' => collect($readableDomains)->map(fn ($d) => ['key' => $d, 'label' => $this->domainLabel($d)]),
@@ -442,9 +506,14 @@ class Stocks extends Component
             'canWrite' => $user->canWriteStockDomain($this->domain),
             'movementHistory' => $movementHistory,
             'filteredPatients' => $filteredPatients,
+            'filteredPrescribingDoctors' => $filteredPrescribingDoctors,
             'productPlaceholder' => $this->productPlaceholder($this->domain),
             'unitPlaceholder' => $this->unitPlaceholder($this->domain),
             'canLinkPatient' => in_array($this->domain, self::PATIENT_LINK_DOMAINS, true),
+            'canLinkService' => in_array($this->domain, self::SERVICE_DOMAINS, true),
+            'canLinkPrescriber' => $this->domain === 'pharmacie',
+            'services' => self::SERVICES,
+            'reorderList' => $reorderList,
         ])->layout('layouts.app', ['notifications' => collect()]);
     }
 }

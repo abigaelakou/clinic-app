@@ -201,6 +201,92 @@ Route::middleware([
             return $pdf->download('stock-' . $domain . '-' . now()->format('Y-m-d') . '.pdf');
         })->name('stocks.export.pdf');
 
+        // ---------- Export du réapprovisionnement suggéré (Excel / PDF) ----------
+
+        Route::get('/stocks/reappro/excel', function (\Illuminate\Http\Request $request) {
+            $user = Auth::user();
+            $domain = $request->query('domain');
+
+            if (! $user->canReadStockDomain($domain)) {
+                abort(403);
+            }
+
+            $domainLabel = match ($domain) {
+                'pharmacie' => 'Pharmacie', 'consommable' => 'Consommables',
+                'non_consommable' => 'Non consommables', 'cuisine' => 'Cuisine',
+                default => ucfirst($domain),
+            };
+
+            $products = Product::whereHas('category', fn ($q) => $q->where('domain', $domain))
+                ->where('is_active', true)->belowThreshold()
+                ->with('category')->orderBy('quantity_on_hand')->get();
+
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Réappro');
+
+            $sheet->setCellValue('A1', 'CLINIQUE FAME');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+            $sheet->getStyle('A1')->getFont()->getColor()->setRGB('C0410C');
+            $sheet->setCellValue('A2', 'Réapprovisionnement suggéré — ' . $domainLabel);
+            $sheet->setCellValue('A3', 'Exporté le ' . now()->format('d/m/Y à H:i') . ' par ' . $user->name);
+            $sheet->getStyle('A3')->getFont()->setSize(9)->setItalic(true);
+
+            $headerRow = 5;
+            $headers = ['Produit', 'Catégorie', 'En stock', 'Seuil', 'Quantité suggérée', 'Unité'];
+            foreach ($headers as $i => $h) {
+                $sheet->setCellValue(chr(65 + $i) . $headerRow, $h);
+            }
+            $sheet->getStyle('A' . $headerRow . ':F' . $headerRow)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A' . $headerRow . ':F' . $headerRow)->getFill()
+                ->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('241A15');
+
+            $row = $headerRow + 1;
+            foreach ($products as $p) {
+                $sheet->setCellValue('A' . $row, $p->name);
+                $sheet->setCellValue('B' . $row, $p->category->name);
+                $sheet->setCellValue('C' . $row, $p->formattedQuantity());
+                $sheet->setCellValue('D' . $row, $p->alert_threshold);
+                $sheet->setCellValue('E' . $row, $p->suggestedReorderQty());
+                $sheet->setCellValue('F' . $row, $p->unit);
+                $row++;
+            }
+
+            foreach (range('A', 'F') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            return response()->streamDownload(function () use ($writer) {
+                $writer->save('php://output');
+            }, 'reappro-' . $domain . '-' . now()->format('Y-m-d') . '.xlsx', [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ]);
+        })->name('stocks.reorder.excel');
+
+        Route::get('/stocks/reappro/pdf', function (\Illuminate\Http\Request $request) {
+            $user = Auth::user();
+            $domain = $request->query('domain');
+
+            if (! $user->canReadStockDomain($domain)) {
+                abort(403);
+            }
+
+            $domainLabel = match ($domain) {
+                'pharmacie' => 'Pharmacie', 'consommable' => 'Consommables',
+                'non_consommable' => 'Non consommables', 'cuisine' => 'Cuisine',
+                default => ucfirst($domain),
+            };
+
+            $products = Product::whereHas('category', fn ($q) => $q->where('domain', $domain))
+                ->where('is_active', true)->belowThreshold()
+                ->with('category')->orderBy('quantity_on_hand')->get();
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.reorder', compact('products', 'domainLabel'));
+
+            return $pdf->download('reappro-' . $domain . '-' . now()->format('Y-m-d') . '.pdf');
+        })->name('stocks.reorder.pdf');
+
         // ---------- Export du rapport (Excel / PDF) ----------
 
         $reportStats = function (\Illuminate\Http\Request $request) {

@@ -8,7 +8,7 @@ class StockMovement extends Model
 {
     protected $fillable = [
         'product_id', 'product_batch_id', 'type', 'quantity',
-        'user_id', 'patient_id', 'service', 'reason',
+        'user_id', 'patient_id', 'prescribing_doctor_id', 'service', 'reason',
     ];
 
     public function product()
@@ -29,5 +29,10 @@ class StockMovement extends Model
     public function patient()
     {
         return $this->belongsTo(Patient::class);
+    }
+
+    public function prescribingDoctor()
+    {
+        return $this->belongsTo(Doctor::class, 'prescribing_doctor_id');
     }
 }

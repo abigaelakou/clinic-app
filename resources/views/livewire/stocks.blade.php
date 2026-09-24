@@ -4,7 +4,8 @@
             <h1>Gestion des stocks</h1>
             <div class="date">{{ $currentLabel }}</div>
         </div>
-        <div style="display:flex;gap:10px;">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn ghost" wire:click="openReorder">📋 Réappro</button>
             <a href="{{ route('stocks.export.excel', ['domain' => $domain]) }}" class="btn ghost">⬇ Excel</a>
             <a href="{{ route('stocks.export.pdf', ['domain' => $domain]) }}" class="btn ghost">⬇ PDF</a>
             @if($canWrite)
@@ -164,6 +165,46 @@
                     </div>
                 @endif
 
+                @if($movementType === 'exit' && $canLinkPrescriber)
+                    <div class="form-field">
+                        <label>Médecin prescripteur (optionnel)</label>
+                        @if($movementPrescribingDoctorId)
+                            <div class="selected-chip">✓ {{ $selectedPrescribingDoctorName }} <span wire:click="clearPrescribingDoctor">✕</span></div>
+                        @else
+                            <div class="combo" x-data="{ open:false }" @click.outside="open=false">
+                                <div class="combo-trigger placeholder" @click="open = !open; if(open){ $nextTick(() => $refs.prescriberInput.focus()) }">
+                                    <span>— Aucun —</span>
+                                    <span class="combo-arrow" :class="{ rot: open }">▾</span>
+                                </div>
+                                <div class="combo-panel" x-show="open" x-cloak style="display:none;">
+                                    <div class="combo-search">
+                                        <input type="text" x-ref="prescriberInput" wire:model.live.debounce.150ms="prescribingDoctorSearch" placeholder="Rechercher un médecin…" autocomplete="off" @click.stop>
+                                    </div>
+                                    <div class="combo-list">
+                                        @forelse($filteredPrescribingDoctors as $d)
+                                            <div class="combo-option" x-on:click="open=false" wire:click="selectPrescribingDoctor({{ $d->id }})">{{ $d->user->name ?? '' }}</div>
+                                        @empty
+                                            <div class="combo-empty">Aucun médecin trouvé.</div>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                @if($movementType === 'exit' && $canLinkService)
+                    <div class="form-field">
+                        <label>Service concerné (optionnel)</label>
+                        <select wire:model="movementService" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
+                            <option value="">— Non précisé —</option>
+                            @foreach($services as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
                 <div class="form-field">
                     <label>Motif (optionnel)</label>
                     <input type="text" wire:model="movementReason" placeholder="Ex : réception fournisseur, dispensation...">
@@ -195,6 +236,8 @@
                             <div class="prod-cat">
                                 Par {{ $m->user->name ?? '—' }}
                                 @if($m->patient) · pour {{ $m->patient->first_name }} @endif
+                                @if($m->prescribingDoctor) · prescrit par {{ $m->prescribingDoctor->user->name ?? '' }} @endif
+                                @if($m->service) · service {{ \App\Livewire\Stocks::SERVICES[$m->service] ?? $m->service }} @endif
                                 @if($m->reason) · {{ $m->reason }} @endif
                             </div>
                         </div>
@@ -306,6 +349,39 @@
                     <button type="submit" class="btn">Enregistrer</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale Réapprovisionnement ===== --}}
+    <div class="modal-backdrop {{ $showReorderModal ? 'active' : '' }}" wire:click.self="closeReorder">
+        <div class="modal-card" style="max-width:560px;">
+            <div class="modal-head">
+                <h3 class="serif">Réapprovisionnement suggéré — {{ $currentLabel }}</h3>
+                <button class="modal-close" wire:click="closeReorder">✕</button>
+            </div>
+
+            <div style="display:flex;gap:10px;margin-bottom:14px;">
+                <a href="{{ route('stocks.reorder.excel', ['domain' => $domain]) }}" class="btn ghost">⬇ Excel</a>
+                <a href="{{ route('stocks.reorder.pdf', ['domain' => $domain]) }}" class="btn ghost">⬇ PDF</a>
+            </div>
+
+            <div style="max-height:360px;overflow-y:auto;">
+                @forelse($reorderList as $p)
+                    <div class="consult-row" style="padding:10px 4px;">
+                        <div class="consult-info">
+                            <b>{{ $p->name }}</b>
+                            <div class="prod-cat">
+                                {{ $p->category->name }} · en stock : {{ $p->formattedQuantity() }} {{ $p->unit }} · seuil : {{ rtrim(rtrim(number_format($p->alert_threshold, 2, '.', ''), '0'), '.') }}
+                            </div>
+                        </div>
+                        <div style="font-weight:700;color:var(--clay);white-space:nowrap;">
+                            + {{ rtrim(rtrim(number_format($p->suggestedReorderQty(), 2, '.', ''), '0'), '.') }} {{ $p->unit }}
+                        </div>
+                    </div>
+                @empty
+                    <div style="padding:20px;text-align:center;color:var(--ink-soft);font-size:13px;">Aucun produit à réapprovisionner sur ce domaine pour l'instant. 🎉</div>
+                @endforelse
+            </div>
         </div>
     </div>
 
