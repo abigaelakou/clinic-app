@@ -50,6 +50,9 @@
         @endif
         @if(auth()->user()?->isAdmin())
         <div class="nav-section-label">Administration</div>
+        <a href="{{ route('reports') }}" class="nav-item {{ request()->routeIs('reports') ? 'active' : '' }}">
+            <span class="ic">📊</span> Rapports & pilotage
+        </a>
         <a href="{{ route('users') }}" class="nav-item {{ request()->routeIs('users') ? 'active' : '' }}">
             <span class="ic">👤</span> Utilisateurs & droits
         </a>

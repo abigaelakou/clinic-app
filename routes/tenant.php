@@ -11,12 +11,18 @@ use App\Livewire\Rdv;
 use App\Livewire\Stocks;
 use App\Livewire\Patients;
 use App\Livewire\Users;
+use App\Livewire\Reports;
 use App\Livewire\Profile;
 use App\Livewire\PatientPortal\Register as PatientRegister;
 use App\Livewire\PatientPortal\Login as PatientLogin;
 use App\Livewire\PatientPortal\Dashboard as PatientDashboard;
 use App\Livewire\Auth\Login;
 use App\Models\Product;
+use App\Models\Patient;
+use App\Models\Consultation;
+use App\Models\Appointment;
+use App\Models\StockMovement;
+use App\Models\Doctor;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -58,6 +64,7 @@ Route::middleware([
         Route::get('/dossiers-patients', Patients::class)->name('patients');
         Route::get('/utilisateurs', Users::class)->name('users');
         Route::get('/mon-profil', Profile::class)->name('profile');
+        Route::get('/rapports', Reports::class)->name('reports');
 
         Route::get('/dossiers-patients/modele-import', function () {
             $spreadsheet = new \PhpOffice\PhpSpreadsheet\Spreadsheet();
@@ -76,7 +83,6 @@ Route::middleware([
                 ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)->getStartColor()->setRGB('241A15');
             $sheet->getStyle('A1:J1')->getFont()->getColor()->setRGB('FFFFFF');
 
-            // Une ligne d'exemple pour guider la saisie.
             $sheet->setCellValue('A2', 'Danielle');
             $sheet->setCellValue('B2', 'Koffi');
             $sheet->setCellValue('C2', '0701000099');
@@ -194,5 +200,153 @@ Route::middleware([
 
             return $pdf->download('stock-' . $domain . '-' . now()->format('Y-m-d') . '.pdf');
         })->name('stocks.export.pdf');
+
+        // ---------- Export du rapport (Excel / PDF) ----------
+
+        $reportStats = function (\Illuminate\Http\Request $request) {
+            $period = $request->query('period', 'month');
+            $doctorId = $request->query('doctor') ?: null;
+            $domain = $request->query('domain') ?: null;
+
+            $bounds = match ($period) {
+                'month' => [now()->startOfMonth(), now()->endOfMonth()],
+                'year' => [now()->startOfYear(), now()->endOfYear()],
+                default => [now()->subYears(10), now()],
+            };
+            [$start, $end] = $bounds;
+
+            $newPatients = Patient::whereBetween('created_at', [$start, $end])->count();
+
+            $consultQuery = fn () => Consultation::whereBetween('consulted_at', [$start, $end])
+                ->when($doctorId, fn ($q) => $q->where('doctor_id', $doctorId));
+            $consultationsTotal = $consultQuery()->count();
+
+            $apptQuery = fn () => Appointment::whereBetween('created_at', [$start, $end])
+                ->when($doctorId, fn ($q) => $q->where('doctor_id', $doctorId));
+            $apptTotal = $apptQuery()->count();
+            $apptConfirmed = $apptQuery()->whereIn('status', ['confirmed', 'completed'])->count();
+            $apptCancelled = $apptQuery()->where('status', 'cancelled')->count();
+            $cancelRate = $apptTotal > 0 ? round($apptCancelled / $apptTotal * 100) : 0;
+
+            $productScope = fn () => Product::where('is_active', true)
+                ->when($domain, fn ($q) => $q->whereHas('category', fn ($c) => $c->where('domain', $domain)));
+            $ruptureCount = $productScope()->outOfStock()->count();
+            $lowStockCount = $productScope()->belowThreshold()->where('quantity_on_hand', '>', 0)->count();
+
+            $byType = Consultation::whereBetween('consulted_at', [$start, $end])
+                ->whereNotNull('consultation_type_id')
+                ->when($doctorId, fn ($q) => $q->where('doctor_id', $doctorId))
+                ->selectRaw('consultation_type_id, count(*) as total')
+                ->groupBy('consultation_type_id')
+                ->with('type')
+                ->get()
+                ->sortByDesc('total');
+
+            $byDoctor = collect();
+            if (! $doctorId) {
+                $byDoctor = Consultation::whereBetween('consulted_at', [$start, $end])
+                    ->selectRaw('doctor_id, count(*) as total')
+                    ->groupBy('doctor_id')
+                    ->with('doctor.user')
+                    ->get()
+                    ->sortByDesc('total');
+            }
+
+            $periodLabel = match ($period) {
+                'month' => 'Rapport du mois — ' . now()->translatedFormat('F Y'),
+                'year' => 'Rapport de l\'année ' . now()->format('Y'),
+                default => 'Rapport complet — depuis le début',
+            };
+
+            $doctorName = $doctorId ? (Doctor::with('user')->find($doctorId)?->user?->name) : null;
+            $domainLabel = $domain ? match ($domain) {
+                'pharmacie' => 'Pharmacie', 'consommable' => 'Consommables',
+                'non_consommable' => 'Non consommables', 'cuisine' => 'Cuisine',
+                default => ucfirst($domain),
+            } : null;
+
+            return compact(
+                'newPatients', 'consultationsTotal', 'apptTotal', 'apptConfirmed',
+                'cancelRate', 'ruptureCount', 'lowStockCount', 'byType', 'byDoctor',
+                'periodLabel', 'doctorName', 'domainLabel'
+            );
+        };
+
+        Route::get('/rapports/export/excel', function (\Illuminate\Http\Request $request) use ($reportStats) {
+            if (! Auth::user()->isAdmin()) abort(403);
+
+            $s = $reportStats($request);
+
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Rapport');
+
+            $sheet->setCellValue('A1', 'CLINIQUE FAME');
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
+            $sheet->getStyle('A1')->getFont()->getColor()->setRGB('C0410C');
+            $sheet->setCellValue('A2', $s['periodLabel']);
+            $sheet->setCellValue('A3', 'Exporté le ' . now()->format('d/m/Y à H:i'));
+            $sheet->getStyle('A3')->getFont()->setSize(9)->setItalic(true);
+
+            $sheet->setCellValue('A5', 'Nouvelles patientes'); $sheet->setCellValue('B5', $s['newPatients']);
+            $sheet->setCellValue('A6', 'Consultations'); $sheet->setCellValue('B6', $s['consultationsTotal']);
+            $sheet->setCellValue('A7', 'RDV confirmés'); $sheet->setCellValue('B7', $s['apptConfirmed'] . '/' . $s['apptTotal']);
+            $sheet->setCellValue('A8', "Taux d'annulation"); $sheet->setCellValue('B8', $s['cancelRate'] . '%');
+            $sheet->setCellValue('A9', 'Produits en rupture'); $sheet->setCellValue('B9', $s['ruptureCount']);
+            $sheet->setCellValue('A10', 'Produits en alerte'); $sheet->setCellValue('B10', $s['lowStockCount']);
+            $sheet->getStyle('A5:A10')->getFont()->setBold(true);
+
+            $row = 13;
+            $sheet->setCellValue('A' . $row, 'Consultations par type');
+            $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(12);
+            $row++;
+            $sheet->setCellValue('A' . $row, 'Code'); $sheet->setCellValue('B' . $row, 'Type'); $sheet->setCellValue('C' . $row, 'Total');
+            $sheet->getStyle('A' . $row . ':C' . $row)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+            $sheet->getStyle('A' . $row . ':C' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('241A15');
+            $row++;
+            foreach ($s['byType'] as $t) {
+                $sheet->setCellValue('A' . $row, $t->type->code ?? '?');
+                $sheet->setCellValue('B' . $row, $t->type->label ?? 'Type supprimé');
+                $sheet->setCellValue('C' . $row, $t->total);
+                $row++;
+            }
+
+            if ($s['byDoctor']->isNotEmpty()) {
+                $row += 2;
+                $sheet->setCellValue('A' . $row, 'Consultations par médecin');
+                $sheet->getStyle('A' . $row)->getFont()->setBold(true)->setSize(12);
+                $row++;
+                $sheet->setCellValue('A' . $row, 'Médecin'); $sheet->setCellValue('B' . $row, 'Total');
+                $sheet->getStyle('A' . $row . ':B' . $row)->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
+                $sheet->getStyle('A' . $row . ':B' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('241A15');
+                $row++;
+                foreach ($s['byDoctor'] as $d) {
+                    $sheet->setCellValue('A' . $row, $d->doctor->user->name ?? 'Médecin supprimé');
+                    $sheet->setCellValue('B' . $row, $d->total);
+                    $row++;
+                }
+            }
+
+            foreach (range('A', 'C') as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+
+            $writer = new Xlsx($spreadsheet);
+            return response()->streamDownload(function () use ($writer) {
+                $writer->save('php://output');
+            }, 'rapport-' . now()->format('Y-m-d') . '.xlsx', [
+                'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ]);
+        })->name('reports.export.excel');
+
+        Route::get('/rapports/export/pdf', function (\Illuminate\Http\Request $request) use ($reportStats) {
+            if (! Auth::user()->isAdmin()) abort(403);
+
+            $s = $reportStats($request);
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.report', $s);
+
+            return $pdf->download('rapport-' . now()->format('Y-m-d') . '.pdf');
+        })->name('reports.export.pdf');
     });
 });
