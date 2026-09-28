@@ -46,6 +46,17 @@ class Dashboard extends Component
         $this->dispatch('toast', message: 'Pièce envoyée — elle sera vérifiée à ton prochain passage à la clinique.');
     }
 
+    // ---------- Confirmation de présence ----------
+
+    public function confirmPresence(int $id)
+    {
+        $patient = Auth::guard('patient')->user();
+        $appointment = $patient->appointments()->where('id', $id)->firstOrFail();
+
+        $appointment->update(['presence_confirmed' => true]);
+        $this->dispatch('toast', message: 'Présence confirmée — à bientôt !');
+    }
+
     // ---------- Nouvelle date proposée par la clinique ----------
 
     public bool $showAltModal = false;
@@ -111,9 +122,6 @@ class Dashboard extends Component
     {
         $patient = Auth::guard('patient')->user();
 
-        // Présélectionne le médecin qui suit déjà la patiente (dernier RDV
-        // ou dernière consultation), tout en lui laissant la main pour
-        // chercher un autre médecin si elle veut consulter quelqu'un d'autre.
         $usualDoctor = $patient->appointments()->latest('scheduled_at')->with('doctor.user')->first()?->doctor
             ?? $patient->consultations()->latest('consulted_at')->with('doctor.user')->first()?->doctor;
 

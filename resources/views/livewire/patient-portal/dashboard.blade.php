@@ -63,6 +63,21 @@
                         @else
                             <span class="pp-tag confirmed">Confirmé</span>
                         @endif
+
+                        @if($appt->isJoinableTeleconsultation())
+                            <div style="margin-top:8px;">
+                                <a href="{{ $appt->jitsiUrl() }}" target="_blank" class="pp-btn" style="width:auto;padding:8px 16px;font-size:12.5px;margin:0;text-decoration:none;display:inline-block;">🎥 Rejoindre la consultation vidéo</a>
+                            </div>
+                        @endif
+
+                        @if($appt->presence_confirmation_requested && ! $appt->presence_confirmed)
+                            <div style="margin-top:8px;background:var(--sky-tint,#E4EFF9);border-radius:9px;padding:10px 12px;">
+                                <div style="font-size:12px;color:var(--ink);margin-bottom:6px;">La clinique te demande de confirmer ta présence à ce rendez-vous.</div>
+                                <button wire:click="confirmPresence({{ $appt->id }})" class="pp-btn" style="width:auto;padding:7px 14px;font-size:12px;margin:0;">✓ Je confirme ma présence</button>
+                            </div>
+                        @elseif($appt->presence_confirmed)
+                            <span class="pp-tag confirmed" style="margin-top:6px;">✓ Présence confirmée</span>
+                        @endif
                     </div>
                 </div>
             @empty

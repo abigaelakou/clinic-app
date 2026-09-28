@@ -11,6 +11,7 @@ class Appointment extends Model
         'duration_minutes', 'status', 'type', 'reason', 'requested_by',
         'confirmed_by', 'presence_confirmation_requested',
         'presence_confirmed', 'cancellation_reason',
+        'reminder_48h_sent_at', 'reminder_24h_sent_at', 'reminder_4h_sent_at',
     ];
 
     protected $casts = [
@@ -67,5 +68,25 @@ class Appointment extends Model
             'no_show' => 'Absence',
             default => ucfirst($this->status),
         };
+    }
+
+    /**
+     * Nom de salle stable et non devinable pour ce RDV — sert à la fois
+     * pour la patiente et le médecin, pas besoin de compte ni d'appli
+     * tierce (Jitsi Meet fonctionne directement dans le navigateur).
+     */
+    public function jitsiRoomName(): string
+    {
+        return 'FAME-' . $this->id . '-' . substr(md5($this->id . $this->created_at . config('app.key')), 0, 10);
+    }
+
+    public function jitsiUrl(): string
+    {
+        return 'https://meet.jit.si/' . $this->jitsiRoomName();
+    }
+
+    public function isJoinableTeleconsultation(): bool
+    {
+        return $this->type === 'teleconsultation' && in_array($this->status, ['confirmed', 'completed'], true);
     }
 }
