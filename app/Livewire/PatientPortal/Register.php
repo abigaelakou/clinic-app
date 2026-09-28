@@ -21,6 +21,7 @@ class Register extends Component
     public bool $duplicateAlreadyClaimed = false;
     public ?int $duplicatePatientId = null;
     public string $duplicateName = '';
+    public bool $duplicateMatchedByNameAndDob = false;
 
     public function register()
     {
@@ -37,17 +38,32 @@ class Register extends Component
             'firstName' => 'prénom', 'phone' => 'téléphone',
         ]);
 
+        // 1) Correspondance exacte par téléphone — le cas le plus fiable.
         $existing = Patient::where('phone', $this->phone)->first();
+        $matchedByNameAndDob = false;
+
+        // 2) Sinon, rattachement automatique intelligent : même prénom +
+        // nom + date de naissance (insensible à la casse), même si le
+        // téléphone diffère (ex : nouvelle carte SIM, dossier créé sans
+        // téléphone à l'accueil...). Cahier §5.3.2.
+        if (! $existing && trim($this->lastName) !== '' && $this->dob) {
+            $existing = Patient::whereRaw('LOWER(first_name) = ?', [strtolower(trim($this->firstName))])
+                ->whereRaw('LOWER(last_name) = ?', [strtolower(trim($this->lastName))])
+                ->whereDate('date_of_birth', $this->dob)
+                ->first();
+
+            $matchedByNameAndDob = (bool) $existing;
+        }
 
         if ($existing) {
-            // Une patiente avec ce numéro existe déjà (créée à la réception,
-            // par exemple) — on ne crée jamais de doublon. Soit elle peut
-            // "réclamer" ce dossier (s'il n'a jamais eu de mot de passe),
-            // soit on l'oriente vers la connexion.
+            // Une patiente correspondante existe déjà — on ne crée jamais
+            // de doublon. Soit elle peut "réclamer" ce dossier (s'il n'a
+            // jamais eu de mot de passe), soit on l'oriente vers la connexion.
             $this->duplicateFound = true;
             $this->duplicatePatientId = $existing->id;
             $this->duplicateName = $existing->first_name . ' ' . $existing->last_name;
             $this->duplicateAlreadyClaimed = ! is_null($existing->password);
+            $this->duplicateMatchedByNameAndDob = $matchedByNameAndDob;
             return;
         }
 
@@ -80,7 +96,16 @@ class Register extends Component
             return;
         }
 
-        $existing->update(['password' => $this->password]);
+        $updates = ['password' => $this->password];
+
+        // Si le rattachement s'est fait par nom+date de naissance (pas par
+        // téléphone), on met à jour le téléphone du dossier existant avec
+        // celui qu'elle vient de saisir — plus à jour.
+        if ($this->duplicateMatchedByNameAndDob && $this->phone) {
+            $updates['phone'] = $this->phone;
+        }
+
+        $existing->update($updates);
 
         Auth::guard('patient')->login($existing);
 
@@ -92,6 +117,7 @@ class Register extends Component
     {
         $this->duplicateFound = false;
         $this->duplicatePatientId = null;
+        $this->duplicateMatchedByNameAndDob = false;
         $this->phone = '';
     }
 

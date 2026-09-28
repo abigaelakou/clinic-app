@@ -25,6 +25,17 @@
                     <input type="text" wire:model.live.debounce.200ms="search" placeholder="Rechercher un nom, un téléphone…"
                            style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
                 </div>
+                @if($canUseContinuity)
+                    <div style="padding:0 18px 12px;">
+                        <label style="display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--ink-soft);cursor:pointer;">
+                            <input type="checkbox" wire:click="toggleContinuityMode" @if($continuitySearchMode) checked @endif style="width:auto;">
+                            Voir toute la patientèle (continuité des soins)
+                        </label>
+                        @if($continuitySearchMode)
+                            <div style="font-size:10.5px;color:var(--warn);margin-top:3px;">⚠ Un motif te sera demandé pour toute patiente qui n'est pas la tienne.</div>
+                        @endif
+                    </div>
+                @endif
                 @forelse($patients as $p)
                     <div class="pat-item {{ $selectedPatientId === $p->id ? 'active' : '' }}" wire:click="selectPatient({{ $p->id }})">
                         <div class="avatar" style="background:linear-gradient(135deg,#C0410C,#7a2707);position:relative;">
@@ -231,11 +242,18 @@
                             Qui a consulté ce dossier, et quand — pour la confidentialité (cahier §5.3.1).
                         </div>
                         @forelse($accessLogs as $log)
+                            @php $isContinuity = str_starts_with($log->action, 'continuity_access:'); @endphp
                             <div class="consult-row">
                                 <div class="consult-date">{{ \Carbon\Carbon::parse($log->accessed_at)->format('d M Y H:i') }}</div>
                                 <div class="consult-info">
                                     <b>{{ $log->user->name ?? 'Utilisateur supprimé' }}</b>
-                                    <div class="prod-cat">{{ $log->user->role ?? '' }} · action : {{ $log->action }}</div>
+                                    @if($isContinuity)
+                                        <div class="prod-cat" style="color:var(--warn);">
+                                            ⚠ {{ $log->user->role ?? '' }} · Accès exceptionnel (continuité des soins) — motif : {{ trim(str_replace('continuity_access:', '', $log->action)) }}
+                                        </div>
+                                    @else
+                                        <div class="prod-cat">{{ $log->user->role ?? '' }} · action : {{ $log->action }}</div>
+                                    @endif
                                 </div>
                             </div>
                         @empty
@@ -614,6 +632,32 @@
                 <div class="form-actions">
                     <button type="button" class="btn ghost" wire:click="closeNewType">Annuler</button>
                     <button type="submit" class="btn">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ===== Modale motif de continuité des soins ===== --}}
+    <div class="modal-backdrop {{ $showContinuityReasonModal ? 'active' : '' }}" wire:click.self="closeContinuityReason">
+        <div class="modal-card" style="max-width:420px;">
+            <div class="modal-head">
+                <h3 class="serif">Accès exceptionnel au dossier</h3>
+                <button class="modal-close" wire:click="closeContinuityReason">✕</button>
+            </div>
+            <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;line-height:1.5;">
+                Cette patiente n'est pas suivie par toi habituellement. Cet accès n'est autorisé que pour la
+                continuité des soins (ex : remplacement, urgence, avis partagé) — indique le motif, il sera
+                enregistré dans le journal d'accès du dossier.
+            </div>
+            <form wire:submit="confirmContinuityAccess">
+                <div class="form-field">
+                    <label>Motif de l'accès</label>
+                    <input type="text" wire:model="continuityReason" placeholder="Ex : remplacement du Dr X ce jour, urgence...">
+                    @error('continuityReason') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn ghost" wire:click="closeContinuityReason">Annuler</button>
+                    <button type="submit" class="btn">Accéder au dossier</button>
                 </div>
             </form>
         </div>
