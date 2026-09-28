@@ -36,8 +36,12 @@
                     <span>Toutes</span><span class="cat-count">{{ $categories->sum('products_count') }}</span>
                 </div>
                 @foreach($categories as $cat)
-                    <div class="cat-item {{ $categoryId === $cat->id ? 'active' : '' }}" wire:click="selectCategory({{ $cat->id }})">
-                        <span>{{ $cat->name }}</span><span class="cat-count">{{ $cat->products_count }}</span>
+                    <div class="cat-item {{ $categoryId === $cat->id ? 'active' : '' }}" style="display:flex;align-items:center;justify-content:space-between;">
+                        <span wire:click="selectCategory({{ $cat->id }})" style="flex:1;cursor:pointer;">{{ $cat->name }}</span>
+                        <span class="cat-count">{{ $cat->products_count }}</span>
+                        @if($canWrite)
+                            <span wire:click="openCategoryThreshold({{ $cat->id }})" title="Régler le seuil d'alerte par défaut" style="cursor:pointer;margin-left:6px;font-size:11px;color:var(--ink-faint);">⚙</span>
+                        @endif
                     </div>
                 @endforeach
             </div>
@@ -265,7 +269,7 @@
 
                 <div class="form-field">
                     <label>Catégorie existante</label>
-                    <select wire:model="newProductCategoryId" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
+                    <select wire:model.live="newProductCategoryId" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
                         <option value="">— Choisir —</option>
                         @foreach($allCategoriesForNewProduct as $cat)
                             <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -394,6 +398,36 @@
                 <button type="button" class="btn ghost" wire:click="closeConfirm">Annuler</button>
                 <button type="button" class="btn" style="background:var(--crit);" wire:click="runConfirmedAction">Confirmer</button>
             </div>
+        </div>
+    </div>
+
+    {{-- ===== Modale Seuil d'alerte par catégorie ===== --}}
+    <div class="modal-backdrop {{ $showCategoryThresholdModal ? 'active' : '' }}" wire:click.self="closeCategoryThreshold">
+        <div class="modal-card" style="max-width:420px;">
+            <div class="modal-head">
+                <h3 class="serif">Seuil d'alerte — {{ $thresholdCategoryName }}</h3>
+                <button class="modal-close" wire:click="closeCategoryThreshold">✕</button>
+            </div>
+            <div style="font-size:12.5px;color:var(--ink-soft);margin-bottom:14px;">
+                Ce seuil sera proposé par défaut pour tout nouveau produit créé dans cette catégorie.
+            </div>
+            <form wire:submit="saveCategoryThreshold">
+                <div class="form-field">
+                    <label>Seuil d'alerte par défaut</label>
+                    <input type="number" step="1" min="0" wire:model="categoryThresholdValue">
+                    @error('categoryThresholdValue') <div class="field-error">{{ $message }}</div> @enderror
+                </div>
+                <div class="form-field">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" wire:model="applyThresholdToExisting" style="width:auto;">
+                        Appliquer aussi ce seuil à tous les produits déjà existants dans cette catégorie
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn ghost" wire:click="closeCategoryThreshold">Annuler</button>
+                    <button type="submit" class="btn">Enregistrer</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

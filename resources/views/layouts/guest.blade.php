@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/css/logo.jpeg">
+    <link rel="apple-touch-icon" href="/css/logo.jpeg">
     <title>Connexion — CLINIQUE FAME</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,520;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">

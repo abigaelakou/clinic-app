@@ -117,6 +117,9 @@ class Patients extends Component
         if (! Auth::user()->can('viewAny', Patient::class)) {
             abort(403, "Ton rôle n'a pas accès aux dossiers patients.");
         }
+
+        // Reprend le terme tapé dans la barre de recherche du haut, si présent.
+        $this->search = request()->query('search', '');
     }
 
     // ---------- Nouvelle patiente ----------

@@ -359,7 +359,7 @@ Route::middleware([
         };
 
         Route::get('/rapports/export/excel', function (\Illuminate\Http\Request $request) use ($reportStats) {
-            if (! Auth::user()->isAdmin()) abort(403);
+           if (! in_array(Auth::user()->role, ['admin', 'pharmacien', 'econome', 'medecin'], true)) abort(403);
 
             $s = $reportStats($request);
 
@@ -426,7 +426,7 @@ Route::middleware([
         })->name('reports.export.excel');
 
         Route::get('/rapports/export/pdf', function (\Illuminate\Http\Request $request) use ($reportStats) {
-            if (! Auth::user()->isAdmin()) abort(403);
+            if (! in_array(Auth::user()->role, ['admin', 'pharmacien', 'econome', 'medecin'], true)) abort(403);
 
             $s = $reportStats($request);
 

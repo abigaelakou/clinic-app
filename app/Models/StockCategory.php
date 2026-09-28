@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class StockCategory extends Model
 {
-    protected $fillable = ['domain', 'name'];
+    protected $fillable = ['domain', 'name', 'default_alert_threshold'];
 
     public function products()
     {

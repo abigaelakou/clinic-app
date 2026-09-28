@@ -375,6 +375,16 @@ class Stocks extends Component
         $this->showNewProductModal = false;
     }
 
+    public function updatedNewProductCategoryId($value)
+    {
+        if ($value) {
+            $category = StockCategory::find($value);
+            if ($category?->default_alert_threshold !== null) {
+                $this->newProductThreshold = $category->default_alert_threshold;
+            }
+        }
+    }
+
     public function saveNewProduct()
     {
         if (! Auth::user()->canWriteStockDomain($this->domain)) {
@@ -433,6 +443,61 @@ class Stocks extends Component
     }
 
     // ---------- Réapprovisionnement ----------
+
+    // ---- Réglage du seuil d'alerte par catégorie ----
+    public bool $showCategoryThresholdModal = false;
+    public ?int $thresholdCategoryId = null;
+    public string $thresholdCategoryName = '';
+    public $categoryThresholdValue = 0;
+    public bool $applyThresholdToExisting = false;
+
+    public function openCategoryThreshold(int $categoryId)
+    {
+        if (! Auth::user()->canWriteStockDomain($this->domain)) {
+            abort(403);
+        }
+
+        $category = StockCategory::findOrFail($categoryId);
+        $this->thresholdCategoryId = $category->id;
+        $this->thresholdCategoryName = $category->name;
+        $this->categoryThresholdValue = $category->default_alert_threshold ?? 0;
+        $this->applyThresholdToExisting = false;
+        $this->resetErrorBag();
+        $this->showCategoryThresholdModal = true;
+    }
+
+    public function closeCategoryThreshold()
+    {
+        $this->showCategoryThresholdModal = false;
+    }
+
+    public function saveCategoryThreshold()
+    {
+        $this->validate([
+            'categoryThresholdValue' => 'required|numeric|min:0',
+        ], [], ['categoryThresholdValue' => "seuil d'alerte"]);
+
+        $category = StockCategory::findOrFail($this->thresholdCategoryId);
+
+        if (! Auth::user()->canWriteStockDomain($category->domain)) {
+            abort(403);
+        }
+
+        $category->update(['default_alert_threshold' => $this->categoryThresholdValue]);
+
+        // Tout nouveau produit créé dans cette catégorie reprendra ce
+        // seuil par défaut (voir saveNewProduct). En plus, si demandé,
+        // on l'applique aussi à tous les produits déjà existants.
+        $updated = 0;
+        if ($this->applyThresholdToExisting) {
+            $updated = $category->products()->update(['alert_threshold' => $this->categoryThresholdValue]);
+        }
+
+        $this->showCategoryThresholdModal = false;
+        $this->dispatch('toast', message: $updated > 0
+            ? "Seuil enregistré et appliqué à {$updated} produit(s) existant(s)."
+            : 'Seuil enregistré pour les futurs produits de cette catégorie.');
+    }
 
     public function openReorder()
     {
