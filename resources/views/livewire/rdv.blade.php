@@ -81,6 +81,9 @@
                             <div class="agenda-patient">{{ $appt->patient->first_name }} — {{ $appt->reason }}</div>
                             @if($appt->type === 'teleconsultation')
                                 <div class="agenda-tag tele">🎥 Vidéo</div>
+                                @if($appt->isJoinableTeleconsultation())
+                                    <a href="{{ $appt->jitsiUrl() }}" target="_blank" class="agenda-tag tele" style="text-decoration:none;display:inline-block;margin-top:4px;background:var(--sky-tint,#E4EFF9);color:var(--sky,#4C8FC0);font-weight:700;">🎥 Rejoindre l'appel</a>
+                                @endif
                             @elseif($appt->status === 'pending')
                                 <div class="agenda-tag">En attente de confirmation</div>
                             @elseif($appt->status === 'rescheduled')
@@ -90,10 +93,18 @@
                             @elseif($appt->status === 'completed')
                                 <div class="agenda-tag" style="color:var(--ink-faint);">✓ Terminé</div>
                             @endif
+                            @if($appt->presence_confirmation_requested)
+                                <div class="agenda-tag" style="color:{{ $appt->presence_confirmed ? 'var(--ok)' : 'var(--warn)' }};">
+                                    {{ $appt->presence_confirmed ? '✓ Présence confirmée par la patiente' : '⏳ En attente de confirmation de présence' }}
+                                </div>
+                            @endif
                             @if(! in_array($appt->status, ['cancelled', 'completed']) && $canConfirm)
                                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                                     @if(in_array($appt->status, ['pending', 'rescheduled']))
                                         <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--ok);" wire:click="confirm({{ $appt->id }})">✓ Confirmer</button>
+                                    @endif
+                                    @if($appt->status === 'confirmed' && ! $appt->presence_confirmation_requested)
+                                        <button class="btn ghost" style="padding:5px 9px;font-size:11px;" wire:click="requestPresenceConfirmation({{ $appt->id }})">Demander confirmation présence</button>
                                     @endif
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;color:var(--ok);" wire:click="markCompleted({{ $appt->id }})">✓ Terminé</button>
                                     <button class="btn ghost" style="padding:5px 9px;font-size:11px;" wire:click="openReschedule({{ $appt->id }})">Reporter</button>

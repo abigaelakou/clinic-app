@@ -133,6 +133,21 @@ class Rdv extends Component
         $this->dispatch('toast', message: 'Rendez-vous marqué comme terminé.');
     }
 
+    /** Demande à la patiente de confirmer sa présence (cahier §5.2). */
+    public function requestPresenceConfirmation(int $appointmentId)
+    {
+        $appointment = Appointment::findOrFail($appointmentId);
+
+        if (! Auth::user()->can('update', $appointment)) {
+            abort(403);
+        }
+
+        $appointment->update(['presence_confirmation_requested' => true, 'presence_confirmed' => false]);
+        $this->notifyPatientByEmail($appointment->fresh(), 'presence_requested');
+
+        $this->dispatch('toast', message: 'Confirmation de présence demandée à la patiente.');
+    }
+
     /** Suppression définitive — réservée à l'admin, contrairement à "Annuler" qui garde une trace. */
     protected function reallyDeleteAppointment(?int $id)
     {

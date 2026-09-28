@@ -9,11 +9,14 @@
     .head.confirmed { background: #2F6F62; }
     .head.cancelled { background: #B3261E; }
     .head.rescheduled { background: #C98A1A; }
+    .head.presence_requested { background: #4C8FC0; }
+    .head.reminder { background: #8B6EC7; }
     .head h1 { color: #fff; font-size: 18px; margin: 0; }
     .body { padding: 26px 28px; }
     .body p { font-size: 14px; line-height: 1.6; }
     .box { background: #F3F5F2; border-radius: 8px; padding: 16px 18px; margin: 16px 0; font-size: 13.5px; }
     .box div { margin-bottom: 5px; }
+    .btn { display: inline-block; background: #C0410C; color: #fff !important; text-decoration: none; padding: 11px 22px; border-radius: 8px; font-size: 13.5px; font-weight: 600; margin-top: 8px; }
     .foot { padding: 16px 28px; font-size: 11px; color: #A79A92; text-align: center; }
 </style>
 </head>
@@ -23,6 +26,8 @@
             <h1>
                 @if($kind === 'confirmed') ✓ Rendez-vous confirmé
                 @elseif($kind === 'cancelled') ✕ Rendez-vous annulé
+                @elseif($kind === 'presence_requested') ⓘ Confirme ta présence
+                @elseif($kind === 'reminder') ⏰ Rappel de rendez-vous
                 @else ↻ Rendez-vous reporté
                 @endif
             </h1>
@@ -34,6 +39,10 @@
                     Ton rendez-vous est confirmé :
                 @elseif($kind === 'cancelled')
                     Ton rendez-vous a été annulé{{ $appointment->cancellation_reason ? ' (' . $appointment->cancellation_reason . ')' : '' }}.
+                @elseif($kind === 'presence_requested')
+                    La clinique te demande de confirmer ta présence pour ce rendez-vous, depuis ton espace en ligne :
+                @elseif($kind === 'reminder')
+                    Petit rappel — tu as un rendez-vous prochainement :
                 @else
                     Ton rendez-vous a été reporté au nouveau créneau suivant :
                 @endif
@@ -43,6 +52,9 @@
                     <div><b>{{ $appointment->doctor->user->name ?? '' }}</b></div>
                     <div>{{ $appointment->scheduled_at->translatedFormat('l j F Y') }} à {{ $appointment->scheduled_at->format('H:i') }}</div>
                     <div>{{ $appointment->reason }}</div>
+                    @if($appointment->type === 'teleconsultation')
+                        <div>🎥 Téléconsultation — le lien sera disponible depuis ton espace</div>
+                    @endif
                 </div>
             @endif
             <p>Tu peux consulter le détail depuis ton espace en ligne.</p>
