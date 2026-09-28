@@ -14,7 +14,11 @@
                 <button type="button" class="pp-btn ghost" wire:click="notMe" style="margin-top:8px;">Ce n'est pas moi, recommencer</button>
             @else
                 <div class="pp-banner" style="text-align:left;background:var(--warn-tint);color:var(--warn);">
-                    Un dossier existe déjà à la clinique pour <b>{{ $duplicateName }}</b> avec ce numéro. Est-ce bien toi ?
+                    @if($duplicateMatchedByNameAndDob)
+                        Un dossier existe déjà à la clinique pour <b>{{ $duplicateName }}</b>, avec le même nom et la même date de naissance (le numéro était différent). Est-ce bien toi ?
+                    @else
+                        Un dossier existe déjà à la clinique pour <b>{{ $duplicateName }}</b> avec ce numéro. Est-ce bien toi ?
+                    @endif
                 </div>
                 <button type="button" class="pp-btn" wire:click="claimAccount">Oui, c'est moi — activer mon accès en ligne</button>
                 <button type="button" class="pp-btn ghost" wire:click="notMe" style="margin-top:8px;">Non, ce n'est pas moi</button>
@@ -53,6 +57,9 @@
                             <option value="M">Masculin</option>
                         </select>
                     </div>
+                </div>
+                <div style="font-size:11px;color:var(--ink-faint);margin:-8px 0 14px;">
+                    Le nom et la date de naissance permettent de te retrouver si tu as déjà un dossier à la clinique.
                 </div>
                 <div class="pp-field">
                     <label>Mot de passe</label>

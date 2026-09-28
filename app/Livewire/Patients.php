@@ -19,6 +19,14 @@ class Patients extends Component
     public ?int $selectedPatientId = null;
     public string $activeTab = 'resume';
 
+    // ---- Continuité des soins : un médecin peut, exceptionnellement,
+    // consulter le dossier d'une patiente qui n'est pas la sienne, à
+    // condition de motiver l'accès. Tout est tracé dans le journal. ----
+    public bool $continuitySearchMode = false;
+    public bool $showContinuityReasonModal = false;
+    public ?int $pendingContinuityPatientId = null;
+    public string $continuityReason = '';
+
     // ---- Nouvelle patiente ----
     public bool $showNewPatientModal = false;
 
@@ -389,7 +397,7 @@ class Patients extends Component
         $user = Auth::user();
         $query = Patient::query();
 
-        if ($user->role === 'medecin' && $user->doctor) {
+        if ($user->role === 'medecin' && $user->doctor && ! $this->continuitySearchMode) {
             $doctorId = $user->doctor->id;
             $query->where(function ($q) use ($doctorId) {
                 $q->whereHas('appointments', fn ($a) => $a->where('doctor_id', $doctorId))
@@ -402,15 +410,40 @@ class Patients extends Component
         return $query;
     }
 
+    public function toggleContinuityMode()
+    {
+        $this->continuitySearchMode = ! $this->continuitySearchMode;
+        $this->resetPage();
+    }
+
+    /** La patiente sélectionnée fait-elle déjà partie du suivi de ce médecin ? */
+    protected function isOwnPatient(Patient $patient, $doctor): bool
+    {
+        return $patient->appointments()->where('doctor_id', $doctor->id)->exists()
+            || $patient->consultations()->where('doctor_id', $doctor->id)->exists();
+    }
+
     public function selectPatient(int $id)
     {
         $patient = Patient::findOrFail($id);
+        $user = Auth::user();
 
-        if (! Auth::user()->can('view', $patient)) {
+        if (! $user->can('view', $patient)) {
             abort(403);
         }
 
-        $patient->logAccess(Auth::user(), 'view');
+        // Continuité des soins (cahier §5.3.1) : si ce médecin ouvre le
+        // dossier d'une patiente qui n'est pas la sienne, on lui demande
+        // un motif avant d'accorder l'accès, et on le trace distinctement.
+        if ($user->role === 'medecin' && $user->doctor && ! $this->isOwnPatient($patient, $user->doctor)) {
+            $this->pendingContinuityPatientId = $id;
+            $this->continuityReason = '';
+            $this->resetErrorBag();
+            $this->showContinuityReasonModal = true;
+            return;
+        }
+
+        $patient->logAccess($user, 'view');
 
         $this->selectedPatientId = $id;
         $this->activeTab = 'resume';
@@ -418,6 +451,33 @@ class Patients extends Component
         $this->resetPage('docPage');
         $this->resetPage('vitalsPage');
         $this->resetPage('journalPage');
+    }
+
+    public function closeContinuityReason()
+    {
+        $this->showContinuityReasonModal = false;
+        $this->pendingContinuityPatientId = null;
+    }
+
+    public function confirmContinuityAccess()
+    {
+        $this->validate([
+            'continuityReason' => 'required|min:5',
+        ], [], ['continuityReason' => 'motif']);
+
+        $patient = Patient::findOrFail($this->pendingContinuityPatientId);
+
+        $patient->logAccess(Auth::user(), 'continuity_access: ' . $this->continuityReason);
+
+        $this->selectedPatientId = $patient->id;
+        $this->activeTab = 'resume';
+        $this->showContinuityReasonModal = false;
+        $this->resetPage('consultPage');
+        $this->resetPage('docPage');
+        $this->resetPage('vitalsPage');
+        $this->resetPage('journalPage');
+
+        $this->dispatch('toast', message: 'Accès accordé — motif enregistré dans le journal.');
     }
 
     public function verifyIdentity()
@@ -735,6 +795,7 @@ class Patients extends Component
             'canManageTypes' => $user->role === 'medecin' || $user->isAdmin(),
             'canEditPatient' => in_array($user->role, ['admin', 'reception'], true),
             'canDeletePatient' => $user->isAdmin(),
+            'canUseContinuity' => $user->role === 'medecin' && $user->doctor,
         ])->layout('layouts.app', ['notifications' => collect()]);
     }
 }
