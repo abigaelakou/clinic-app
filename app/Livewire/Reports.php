@@ -16,11 +16,35 @@ class Reports extends Component
     public ?int $filterDoctorId = null;
     public string $filterStockDomain = '';
 
+    /** Rôle non-admin qui consulte ce rapport — détermine ce qui est visible. */
+    public string $scopeRole = 'admin';
+
     public function mount()
     {
-        if (! Auth::user()->isAdmin()) {
-            abort(403, "Cette page est réservée à l'administrateur.");
+        $user = Auth::user();
+
+        if ($user->isAdmin()) {
+            $this->scopeRole = 'admin';
+            return;
         }
+
+        // Cahier §9 : pharmacien/économat/médecin voient chacun le rapport
+        // de leur propre domaine, pas celui de toute la clinique.
+        if (in_array($user->role, ['pharmacien', 'econome', 'medecin'], true)) {
+            $this->scopeRole = $user->role;
+
+            if ($user->role === 'pharmacien') {
+                $this->filterStockDomain = 'pharmacie';
+            } elseif ($user->role === 'medecin' && $user->doctor) {
+                $this->filterDoctorId = $user->doctor->id;
+            } elseif ($user->role === 'medecin' && ! $user->doctor) {
+                abort(403);
+            }
+
+            return;
+        }
+
+        abort(403, "Ton rôle n'a pas accès aux rapports.");
     }
 
     public function setPeriod(string $period)
@@ -95,6 +119,18 @@ class Reports extends Component
 
     public function render()
     {
+        $user = Auth::user();
+
+        // Sécurité : on reverrouille les filtres selon le rôle à chaque
+        // rendu, pour qu'ils ne puissent pas être contournés côté client.
+        if ($this->scopeRole === 'pharmacien') {
+            $this->filterStockDomain = 'pharmacie';
+        } elseif ($this->scopeRole === 'econome' && ! in_array($this->filterStockDomain, ['consommable', 'non_consommable', 'cuisine'], true)) {
+            $this->filterStockDomain = 'consommable';
+        } elseif ($this->scopeRole === 'medecin' && $user->doctor) {
+            $this->filterDoctorId = $user->doctor->id;
+        }
+
         $current = $this->computeStats($this->periodBounds(0), $this->filterDoctorId, $this->filterStockDomain);
         $previous = $this->period === 'all' ? null : $this->computeStats($this->periodBounds(1), $this->filterDoctorId, $this->filterStockDomain);
 
@@ -157,6 +193,11 @@ class Reports extends Component
             'evolution' => $evolution,
             'maxEvolution' => $maxEvolution,
             'filteredDoctors' => Doctor::with('user')->orderBy('id')->get(),
+            'scopeRole' => $this->scopeRole,
+            'canSeeStock' => in_array($this->scopeRole, ['admin', 'pharmacien', 'econome'], true),
+            'canSeeClinical' => in_array($this->scopeRole, ['admin', 'medecin'], true),
+            'canPickDoctor' => $this->scopeRole === 'admin',
+            'canPickDomain' => in_array($this->scopeRole, ['admin', 'econome'], true),
         ]))->layout('layouts.app', ['notifications' => collect()]);
     }
 }

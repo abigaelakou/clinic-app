@@ -22,20 +22,28 @@
     <div class="card" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding:14px 18px;margin-bottom:18px;">
         <div style="font-size:12.5px;font-weight:600;color:var(--ink-soft);">Filtrer :</div>
 
-        <select wire:model.live="filterDoctorId" style="padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;max-width:240px;">
-            <option value="">— Tous les médecins —</option>
-            @foreach($filteredDoctors as $doc)
-                <option value="{{ $doc->id }}">{{ $doc->user->name ?? '' }}</option>
-            @endforeach
-        </select>
+        @if($canPickDoctor)
+            <select wire:model.live="filterDoctorId" style="padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;max-width:240px;">
+                <option value="">— Tous les médecins —</option>
+                @foreach($filteredDoctors as $doc)
+                    <option value="{{ $doc->id }}">{{ $doc->user->name ?? '' }}</option>
+                @endforeach
+            </select>
+        @elseif($scopeRole === 'medecin')
+            <div style="padding:8px 12px;border-radius:8px;background:var(--clay-tint);font-size:13px;">👤 Ton activité uniquement</div>
+        @endif
 
-        <select wire:model.live="filterStockDomain" style="padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
-            <option value="">Tous les domaines de stock</option>
-            <option value="pharmacie">Pharmacie</option>
-            <option value="consommable">Consommables</option>
-            <option value="non_consommable">Non consommables</option>
-            <option value="cuisine">Cuisine</option>
-        </select>
+        @if($canPickDomain)
+            <select wire:model.live="filterStockDomain" style="padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--stone);font-size:13px;font-family:inherit;">
+                @if($scopeRole === 'admin')<option value="">Tous les domaines de stock</option>@endif
+                @if($scopeRole === 'admin')<option value="pharmacie">Pharmacie</option>@endif
+                <option value="consommable">Consommables</option>
+                <option value="non_consommable">Non consommables</option>
+                <option value="cuisine">Cuisine</option>
+            </select>
+        @elseif($scopeRole === 'pharmacien')
+            <div style="padding:8px 12px;border-radius:8px;background:var(--peach-tint);font-size:13px;">💊 Pharmacie uniquement</div>
+        @endif
     </div>
 
     @php
@@ -49,6 +57,7 @@
         };
     @endphp
 
+    @if($canSeeClinical)
     <div class="kpi-row">
         <div class="kpi">
             <div class="label">Nouvelles patientes</div>
@@ -71,7 +80,9 @@
     @if($period !== 'all')
         <div style="font-size:11px;color:var(--ink-faint);margin:-10px 0 18px;">Comparé à {{ $period === 'month' ? 'le mois précédent' : "l'année précédente" }}.</div>
     @endif
+    @endif
 
+    @if($canSeeStock)
     <div class="kpi-row">
         <div class="kpi">
             <div class="label">Produits en rupture</div>
@@ -90,7 +101,9 @@
             <div class="value">−{{ $exits }}</div>
         </div>
     </div>
+    @endif
 
+    @if($canSeeClinical)
     <div class="card" style="margin-bottom:18px;">
         <div class="card-head" style="padding:0 0 14px;"><h2><span class="card-icon i-lavender">📈</span>Évolution des consultations — 6 derniers mois</h2></div>
         <div style="display:flex;align-items:flex-end;gap:10px;height:120px;padding:0 6px;">
@@ -141,4 +154,5 @@
             @endif
         </div>
     </div>
+    @endif
 </div>

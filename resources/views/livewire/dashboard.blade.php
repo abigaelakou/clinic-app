@@ -13,7 +13,9 @@
             <div class="date">{{ now()->translatedFormat('l j F Y') }} · Vue d'ensemble de la clinique</div>
         </div>
         <div style="display:flex;gap:10px;">
-            <button class="btn ghost">Exporter le rapport</button>
+            @if(in_array(auth()->user()?->role, ['admin', 'pharmacien', 'econome', 'medecin'], true))
+                <a href="{{ route('reports') }}" class="btn ghost" style="text-decoration:none;">📊 Voir les rapports</a>
+            @endif
             @if($canSeeAppointments)
                 <button class="btn" wire:click="$dispatch('open-new-appointment-modal')">+ Nouveau rendez-vous</button>
             @endif

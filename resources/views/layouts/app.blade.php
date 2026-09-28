@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/jpeg" href="/css/logo.jpeg">
+    <link rel="apple-touch-icon" href="/css/logo.jpeg">
     <title>{{ $title ?? 'Tableau de bord' }} — CLINIQUE FAME</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,520;9..144,600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -48,15 +50,17 @@
             <span class="ic">💊</span> Stocks
         </a>
         @endif
-        @if(auth()->user()?->isAdmin())
+        @if(in_array(auth()->user()?->role, ['admin', 'pharmacien', 'econome', 'medecin'], true))
         <div class="nav-section-label">Administration</div>
         <a href="{{ route('reports') }}" class="nav-item {{ request()->routeIs('reports') ? 'active' : '' }}">
             <span class="ic">📊</span> Rapports & pilotage
         </a>
+    @endif
+    @if(auth()->user()?->isAdmin())
         <a href="{{ route('users') }}" class="nav-item {{ request()->routeIs('users') ? 'active' : '' }}">
             <span class="ic">👤</span> Utilisateurs & droits
         </a>
-        @endif
+    @endif
         <div class="sidebar-foot">
             <a href="{{ route('profile') }}" class="user-chip" style="text-decoration:none;color:inherit;">
                 @if(auth()->user()?->avatar_path)
@@ -80,13 +84,15 @@
         <div class="topbar">
             <div style="display:flex;align-items:center;gap:10px;">
                 <div class="icon-btn hamburger" id="hamburger">☰</div>
-                <div class="search">
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    Rechercher une patiente, un produit…
-                </div>
+                @can('viewAny', App\Models\Patient::class)
+                    <form action="{{ route('patients') }}" method="GET" class="search" style="cursor:text;">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <input type="text" name="search" placeholder="Rechercher une patiente…" autocomplete="off"
+                               style="border:none;background:none;outline:none;font-size:inherit;font-family:inherit;color:inherit;width:100%;">
+                    </form>
+                @endcan
             </div>
             <div class="top-actions">
-                <div class="icon-btn">✉</div>
                 <div class="notif-wrap" id="notifWrap">
                     <div class="icon-btn" id="notifBtn">🔔<span class="ping"></span></div>
                     <div class="notif-panel">
@@ -146,6 +152,19 @@
     </div>
     <button class="expired-toast-btn" onclick="location.reload()">Recharger</button>
 </div>
+
+<div class="expired-toast" id="inactivityWarningToast">
+    <div class="expired-toast-icon">⏳</div>
+    <div>
+        <div class="expired-toast-title">Toujours là ?</div>
+        <div class="expired-toast-desc">Déconnexion automatique dans <span id="inactivityCountdown">60</span>s par sécurité (dossiers médicaux).</div>
+    </div>
+    <button class="expired-toast-btn" id="stayLoggedInBtn">Je suis là</button>
+</div>
+<form id="autoLogoutForm" method="POST" action="{{ route('logout') }}" style="display:none;">
+    @csrf
+</form>
+
 <script>
     document.addEventListener('livewire:init', () => {
         Livewire.hook('request', ({ fail }) => {
@@ -157,6 +176,56 @@
             });
         });
     });
+</script>
+
+<script>
+    // ---- Déconnexion automatique après inactivité (dossiers médicaux : sécurité) ----
+    (function(){
+        const TIMEOUT_MS = 15 * 60 * 1000;   // 15 minutes d'inactivité totale
+        const WARNING_MS = 60 * 1000;        // avertissement 60s avant la déconnexion
+        let inactivityTimer, warningTimer, countdownInterval;
+
+        const warningEl = document.getElementById('inactivityWarningToast');
+        const countdownEl = document.getElementById('inactivityCountdown');
+        const stayBtn = document.getElementById('stayLoggedInBtn');
+        const logoutForm = document.getElementById('autoLogoutForm');
+
+        function clearAll(){
+            clearTimeout(inactivityTimer);
+            clearTimeout(warningTimer);
+            clearInterval(countdownInterval);
+        }
+
+        function resetTimers(){
+            clearAll();
+            warningEl?.classList.remove('show');
+            warningTimer = setTimeout(showWarning, TIMEOUT_MS - WARNING_MS);
+            inactivityTimer = setTimeout(doLogout, TIMEOUT_MS);
+        }
+
+        function showWarning(){
+            let remaining = WARNING_MS / 1000;
+            if (countdownEl) countdownEl.textContent = remaining;
+            warningEl?.classList.add('show');
+            countdownInterval = setInterval(() => {
+                remaining--;
+                if (countdownEl) countdownEl.textContent = remaining;
+                if (remaining <= 0) clearInterval(countdownInterval);
+            }, 1000);
+        }
+
+        function doLogout(){
+            logoutForm?.submit();
+        }
+
+        stayBtn && stayBtn.addEventListener('click', resetTimers);
+
+        ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach((evt) => {
+            document.addEventListener(evt, resetTimers, { passive: true });
+        });
+
+        resetTimers();
+    })();
 </script>
 <script>
     const sidebar = document.getElementById('sidebar');
